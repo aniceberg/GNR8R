@@ -1,13 +1,13 @@
 {
   "domain": "cummins_gnr8r",
   "name": "cummins_GNR8R",
-  "codeowners": ["@your-github-handle"],
+  "codeowners": ["@aniceberg"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/your-org/cummins-generator-ha",
+  "documentation": "https://github.com/aniceberg/GNR8R",
   "homeassistant": "2025.1.0",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/your-org/cummins-generator-ha/issues",
+  "issue_tracker": "https://github.com/aniceberg/GNR8R/issues",
   "loggers": ["custom_components.cummins_gnr8r"],
   "requirements": ["pymodbus>=3.8.0"],
   "version": "0.1.0"
