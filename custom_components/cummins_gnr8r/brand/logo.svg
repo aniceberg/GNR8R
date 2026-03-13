@@ -1,4 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 256">
-  <rect width="512" height="256" rx="36" fill="#153727"/>
-  <text x="256" y="145" text-anchor="middle" font-family="Verdana, sans-serif" font-size="54" fill="#ffffff">cummins_GNR8R</text>
+  <defs>
+    <linearGradient id="panel" x1="0" x2="512" y1="0" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e4331"/>
+      <stop offset="1" stop-color="#10251c"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="38" x2="124" y1="54" y2="164" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f4faf6"/>
+      <stop offset="1" stop-color="#d2dcd6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="256" rx="34" fill="url(#panel)"/>
+  <rect x="18" y="18" width="476" height="220" rx="24" fill="none" stroke="#7fb897" stroke-opacity=".22" stroke-width="2"/>
+  <rect x="42" y="58" width="92" height="92" rx="22" fill="#173226" stroke="#82c29c" stroke-opacity=".34" stroke-width="2"/>
+  <path d="M112 70c-9-7-20-11-31-11-30 0-53 23-53 53s23 53 53 53c11 0 22-4 31-11l-12-12c-5 4-11 7-19 7-20 0-36-16-36-37s16-37 36-37c8 0 14 3 19 7l12-12z" fill="url(#steel)"/>
+  <path d="M127 73l-19 19" stroke="#82c29c" stroke-width="5" stroke-linecap="round"/>
+  <path d="M122 92h-11" stroke="#82c29c" stroke-width="5" stroke-linecap="round"/>
+  <text x="164" y="116" font-family="DIN Condensed, Arial Narrow, sans-serif" font-size="54" font-weight="700" letter-spacing="2" fill="#f5faf7">cummins_GNR8R</text>
+  <text x="166" y="154" font-family="Verdana, sans-serif" font-size="16" letter-spacing="4" fill="#8db9a0">POWERCOMMAND MODBUS MONITOR</text>
+  <rect x="166" y="176" width="132" height="10" rx="5" fill="#82c29c"/>
 </svg>
