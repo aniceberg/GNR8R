@@ -89,7 +89,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
 
 
 class CumminsGeneratorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Cummins Generator."""
+    """Handle a config flow for cummins_GNR8R."""
 
     VERSION = 1
 
@@ -111,7 +111,7 @@ class CumminsGeneratorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except CumminsGeneratorError:
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(title="Cummins Generator", data=user_input)
+                return self.async_create_entry(title="cummins_GNR8R", data=user_input)
 
         return self.async_show_form(
             step_id="user",
@@ -133,7 +133,7 @@ class CumminsGeneratorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class CumminsGeneratorOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
-    """Options flow for Cummins Generator."""
+    """Options flow for cummins_GNR8R."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}

@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.cummins_generator.const import DOMAIN
-from custom_components.cummins_generator.diagnostics import (
+from custom_components.cummins_gnr8r.const import DOMAIN
+from custom_components.cummins_gnr8r.diagnostics import (
     _partially_redact_serial_path,
     async_get_config_entry_diagnostics,
 )
@@ -22,7 +22,7 @@ def test_partially_redact_serial_path() -> None:
 async def test_async_get_config_entry_diagnostics(hass, entry_data) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Cummins Generator",
+        title="cummins_GNR8R",
         data=entry_data,
         unique_id="/dev/ttyUSB0:1",
     )

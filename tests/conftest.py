@@ -10,7 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from custom_components.cummins_generator.const import (
+from custom_components.cummins_gnr8r.const import (
     CONF_BAUDRATE,
     CONF_BYTESIZE,
     CONF_PARITY,
@@ -44,7 +44,7 @@ def auto_enable_custom_integrations(enable_custom_integrations) -> None:
 @pytest.fixture
 def mock_probe() -> Generator:
     with patch(
-        "custom_components.cummins_generator.config_flow.CumminsModbusClient.probe",
+        "custom_components.cummins_gnr8r.config_flow.CumminsModbusClient.probe",
         return_value={40061: 123, 40068: 1800},
     ) as probe:
         yield probe
@@ -53,8 +53,8 @@ def mock_probe() -> Generator:
 @pytest.fixture
 def config_entry(hass, entry_data):
     entry = MockConfigEntry(
-        domain="cummins_generator",
-        title="Cummins Generator",
+        domain="cummins_gnr8r",
+        title="cummins_GNR8R",
         data=entry_data,
         unique_id="/dev/ttyUSB0:1",
     )

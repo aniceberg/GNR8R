@@ -5,8 +5,8 @@ from unittest.mock import Mock
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.cummins_generator.coordinator import CumminsGeneratorCoordinator
-from custom_components.cummins_generator.modbus_client import (
+from custom_components.cummins_gnr8r.coordinator import CumminsGeneratorCoordinator
+from custom_components.cummins_gnr8r.modbus_client import (
     ModbusReadError,
     SerialConnectionParams,
 )

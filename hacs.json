@@ -1,7 +1,7 @@
 {
-  "name": "Cummins Generator",
+  "name": "cummins_GNR8R",
   "country": "US",
-  "domains": ["cummins_generator"],
+  "domains": ["cummins_gnr8r"],
   "homeassistant": "2025.1.0",
   "render_readme": true,
   "iot_class": "local_polling"

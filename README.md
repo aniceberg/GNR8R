@@ -1,4 +1,4 @@
-# Cummins Generator
+# cummins_GNR8R
 
 Home Assistant custom integration for Cummins PowerCommand / PCC1301-family generators over local Modbus RTU on RS-485.
 
@@ -68,18 +68,18 @@ Because Cummins controller families vary, some installations may require registe
 2. In Home Assistant, open HACS.
 3. Open the three-dot menu, choose `Custom repositories`.
 4. Add your GitHub repository URL and choose category `Integration`.
-5. Find `Cummins Generator` in HACS and install it.
+5. Find `cummins_GNR8R` in HACS and install it.
 6. Restart Home Assistant.
 
 ## Manual Installation
 
-1. Copy `custom_components/cummins_generator/` into your Home Assistant `custom_components/` directory.
+1. Copy `custom_components/cummins_gnr8r/` into your Home Assistant `custom_components/` directory.
 2. Restart Home Assistant.
 3. Add the integration from `Settings > Devices & services > Add integration`.
 
 ## Setup in Home Assistant
 
-1. Add `Cummins Generator`.
+1. Add `cummins_GNR8R`.
 2. Enter the serial path, slave address, baud rate, byte size, parity, stop bits, poll interval, and optional scan throttle.
 3. The integration validates connectivity by reading safe monitoring registers.
 4. On success, entities are created under one generator device.

@@ -45,7 +45,7 @@ class CumminsGeneratorCoordinator(DataUpdateCoordinator[CoordinatorSnapshot]):
         self.client = client
         self.domain = DOMAIN
         self.device_identifier = f"{client.params.port}:{client.params.slave}"
-        self.device_name = "Cummins Generator"
+        self.device_name = "cummins_GNR8R"
         self.last_exception_type: str | None = None
         self.last_exception_message: str | None = None
 

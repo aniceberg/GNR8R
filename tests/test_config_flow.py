@@ -6,8 +6,8 @@ import pytest
 from homeassistant import config_entries, data_entry_flow
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.cummins_generator.const import DOMAIN
-from custom_components.cummins_generator.modbus_client import (
+from custom_components.cummins_gnr8r.const import DOMAIN
+from custom_components.cummins_gnr8r.modbus_client import (
     ModbusReadError,
     ModbusTimeoutError,
     SerialConnectionError,
@@ -42,7 +42,7 @@ async def test_user_flow_success(hass, mock_probe) -> None:
 async def test_user_flow_duplicate(hass, mock_probe, entry_data) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Cummins Generator",
+        title="cummins_GNR8R",
         data=entry_data,
         unique_id="/dev/ttyUSB0:1",
     )
@@ -69,7 +69,7 @@ async def test_user_flow_duplicate(hass, mock_probe, entry_data) -> None:
 )
 async def test_user_flow_errors(hass, side_effect, error_key) -> None:
     with patch(
-        "custom_components.cummins_generator.config_flow.CumminsModbusClient.probe",
+        "custom_components.cummins_gnr8r.config_flow.CumminsModbusClient.probe",
         side_effect=side_effect,
     ):
         result = await hass.config_entries.flow.async_init(
@@ -97,7 +97,7 @@ async def test_user_flow_errors(hass, side_effect, error_key) -> None:
 async def test_options_flow_success(hass, mock_probe, entry_data) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Cummins Generator",
+        title="cummins_GNR8R",
         data=entry_data,
         unique_id="/dev/ttyUSB0:1",
     )

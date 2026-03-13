@@ -3,13 +3,13 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Final
 
-DOMAIN: Final = "cummins_generator"
-NAME: Final = "Cummins Generator"
+DOMAIN: Final = "cummins_gnr8r"
+NAME: Final = "cummins_GNR8R"
 VERSION: Final = "0.1.0"
 
 PLATFORMS: Final = ("sensor", "binary_sensor")
 
-DEFAULT_NAME: Final = "Cummins Generator"
+DEFAULT_NAME: Final = "cummins_GNR8R"
 DEFAULT_MANUFACTURER: Final = "Cummins"
 DEFAULT_MODEL: Final = "PowerCommand Generator"
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from custom_components.cummins_generator.register_map import (
+from custom_components.cummins_gnr8r.register_map import (
     bit_is_set,
     register_to_offset,
     scale_register_value,
