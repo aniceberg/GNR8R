@@ -1,0 +1,14 @@
+{
+  "domain": "cummins_generator",
+  "name": "Cummins Generator",
+  "codeowners": ["@your-github-handle"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/your-org/cummins-generator-ha",
+  "homeassistant": "2025.1.0",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/your-org/cummins-generator-ha/issues",
+  "loggers": ["custom_components.cummins_generator"],
+  "requirements": ["pymodbus>=3.8.0"],
+  "version": "0.1.0"
+}

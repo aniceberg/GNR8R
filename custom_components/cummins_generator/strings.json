@@ -1,0 +1,87 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Cummins generator",
+        "description": "Configure the serial Modbus RTU connection to your Cummins generator.",
+        "data": {
+          "serial_port": "Serial port",
+          "slave": "Slave address",
+          "baudrate": "Baud rate",
+          "bytesize": "Byte size",
+          "parity": "Parity",
+          "stopbits": "Stop bits",
+          "poll_interval": "Poll interval (seconds)",
+          "scan_throttle_ms": "Scan throttle (milliseconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to open the serial connection.",
+      "timeout": "The controller did not respond in time.",
+      "modbus_error": "The device responded with a Modbus error.",
+      "unknown": "Unexpected error while talking to the controller."
+    },
+    "abort": {
+      "already_configured": "This serial port and slave address are already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update generator connection",
+        "description": "Adjust serial and polling settings for this generator.",
+        "data": {
+          "serial_port": "Serial port",
+          "slave": "Slave address",
+          "baudrate": "Baud rate",
+          "bytesize": "Byte size",
+          "parity": "Parity",
+          "stopbits": "Stop bits",
+          "poll_interval": "Poll interval (seconds)",
+          "scan_throttle_ms": "Scan throttle (milliseconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to open the serial connection.",
+      "timeout": "The controller did not respond in time.",
+      "modbus_error": "The device responded with a Modbus error.",
+      "unknown": "Unexpected error while talking to the controller."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "average_line_frequency": { "name": "Average line frequency" },
+      "battery_voltage": { "name": "Battery voltage" },
+      "oil_pressure": { "name": "Oil pressure" },
+      "coolant_temperature": { "name": "Coolant temperature" },
+      "engine_speed": { "name": "Engine speed" },
+      "total_runs": { "name": "Total runs" },
+      "raw_nfpa_bitmap_1": { "name": "Raw NFPA bitmap 1" },
+      "raw_nfpa_bitmap_2": { "name": "Raw NFPA bitmap 2" }
+    },
+    "binary_sensor": {
+      "common_alarm": { "name": "Common alarm" },
+      "genset_supplying_load": { "name": "Genset supplying load" },
+      "genset_running": { "name": "Genset running" },
+      "not_in_auto": { "name": "Not in auto" },
+      "low_battery_voltage_alarm": { "name": "Low battery voltage alarm" },
+      "charger_ac_failure": { "name": "Charger AC failure" },
+      "fail_to_start": { "name": "Fail to start" },
+      "high_engine_temperature": { "name": "High engine temperature" },
+      "low_oil_pressure": { "name": "Low oil pressure" },
+      "overspeed": { "name": "Overspeed" },
+      "low_fuel_level": { "name": "Low fuel level" },
+      "check_genset": { "name": "Check genset" },
+      "ground_fault": { "name": "Ground fault" },
+      "high_ac_voltage": { "name": "High AC voltage" },
+      "low_ac_voltage": { "name": "Low AC voltage" },
+      "under_frequency": { "name": "Under frequency" },
+      "overload": { "name": "Overload" },
+      "overcurrent": { "name": "Overcurrent" },
+      "short_circuit": { "name": "Short circuit" },
+      "emergency_stop": { "name": "Emergency stop" }
+    }
+  }
+}
