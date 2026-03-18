@@ -10,12 +10,11 @@ from custom_components.cummins_gnr8r.const import DOMAIN
 
 
 @pytest.mark.asyncio
-async def test_setup_entry_failure_bubbles_up(hass, entry_data) -> None:
+async def test_setup_entry_failure_bubbles_up(hass, discrete_entry_data) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="cummins_GNR8R",
-        data=entry_data,
-        unique_id="/dev/ttyUSB0:1",
+        data=discrete_entry_data,
     )
     entry.add_to_hass(hass)
 

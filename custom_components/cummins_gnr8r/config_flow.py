@@ -6,16 +6,32 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 
+from .backends.base import DiscreteEntityValidationError
+from .backends.esphome_discrete import async_validate_entity_mappings, build_discrete_mappings
+from .backends.pcc1302_modbus import async_validate_modbus_backend
 from .const import (
+    BACKEND_ESPHOME_DISCRETE,
+    BACKEND_PCC1302_MODBUS,
+    BACKENDS,
+    CONF_ATS_ON_GENERATOR_ENTITY_ID,
+    CONF_BACKEND,
     CONF_BAUDRATE,
     CONF_BYTESIZE,
+    CONF_GENERATOR_FAULT_ENTITY_ID,
+    CONF_GENERATOR_RUNNING_ENTITY_ID,
+    CONF_INVERT_ATS_ON_GENERATOR,
+    CONF_INVERT_GENERATOR_FAULT,
+    CONF_INVERT_GENERATOR_RUNNING,
+    CONF_INVERT_UTILITY_AVAILABLE,
     CONF_PARITY,
     CONF_POLL_INTERVAL,
     CONF_SCAN_THROTTLE_MS,
     CONF_SERIAL_PORT,
     CONF_SLAVE,
     CONF_STOPBITS,
+    CONF_UTILITY_AVAILABLE_ENTITY_ID,
     DEFAULT_BAUDRATE,
     DEFAULT_BYTESIZE,
     DEFAULT_PARITY,
@@ -24,8 +40,6 @@ from .const import (
     DEFAULT_SLAVE,
     DEFAULT_STOPBITS,
     DOMAIN,
-    REGISTER_BATTERY_VOLTAGE,
-    REGISTER_ENGINE_SPEED,
 )
 from .modbus_client import (
     CumminsGeneratorError,
@@ -37,7 +51,70 @@ from .modbus_client import (
 )
 
 
-def _base_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+def _backend_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    data = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_BACKEND,
+                default=data.get(CONF_BACKEND, BACKEND_ESPHOME_DISCRETE),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=list(BACKENDS),
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                    translation_key="backend",
+                )
+            )
+        }
+    )
+
+
+def _discrete_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    data = defaults or {}
+    entity_selector = selector.EntitySelector(selector.EntitySelectorConfig(domain="binary_sensor"))
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_UTILITY_AVAILABLE_ENTITY_ID,
+                default=data.get(CONF_UTILITY_AVAILABLE_ENTITY_ID, ""),
+            ): entity_selector,
+            vol.Required(
+                CONF_ATS_ON_GENERATOR_ENTITY_ID,
+                default=data.get(CONF_ATS_ON_GENERATOR_ENTITY_ID, ""),
+            ): entity_selector,
+            vol.Required(
+                CONF_GENERATOR_RUNNING_ENTITY_ID,
+                default=data.get(CONF_GENERATOR_RUNNING_ENTITY_ID, ""),
+            ): entity_selector,
+            vol.Required(
+                CONF_GENERATOR_FAULT_ENTITY_ID,
+                default=data.get(CONF_GENERATOR_FAULT_ENTITY_ID, ""),
+            ): entity_selector,
+            vol.Required(
+                CONF_INVERT_UTILITY_AVAILABLE,
+                default=data.get(CONF_INVERT_UTILITY_AVAILABLE, False),
+            ): bool,
+            vol.Required(
+                CONF_INVERT_ATS_ON_GENERATOR,
+                default=data.get(CONF_INVERT_ATS_ON_GENERATOR, False),
+            ): bool,
+            vol.Required(
+                CONF_INVERT_GENERATOR_RUNNING,
+                default=data.get(CONF_INVERT_GENERATOR_RUNNING, False),
+            ): bool,
+            vol.Required(
+                CONF_INVERT_GENERATOR_FAULT,
+                default=data.get(CONF_INVERT_GENERATOR_FAULT, False),
+            ): bool,
+            vol.Required(
+                CONF_POLL_INTERVAL,
+                default=data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+            ): vol.All(int, vol.Range(min=5, max=300)),
+        }
+    )
+
+
+def _modbus_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     data = defaults or {}
     return vol.Schema(
         {
@@ -69,8 +146,13 @@ def _base_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     )
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
-    """Validate a config flow entry by probing safe registers."""
+async def validate_discrete_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
+    """Validate mapped binary-sensor entity IDs."""
+    await async_validate_entity_mappings(hass, build_discrete_mappings(data))
+
+
+async def validate_modbus_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
+    """Validate the Modbus backend."""
     client = CumminsModbusClient(
         SerialConnectionParams(
             port=data[CONF_SERIAL_PORT],
@@ -83,25 +165,73 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
             scan_throttle_ms=data[CONF_SCAN_THROTTLE_MS],
         )
     )
-    await hass.async_add_executor_job(
-        client.probe, (REGISTER_BATTERY_VOLTAGE, REGISTER_ENGINE_SPEED)
-    )
+    await async_validate_modbus_backend(hass, client)
 
 
 class CumminsGeneratorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for cummins_GNR8R."""
+    """Handle config flow for cummins_GNR8R."""
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        self._config_data: dict[str, Any] = {}
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        errors: dict[str, str] = {}
+        """Choose the backend."""
         if user_input is not None:
-            await self.async_set_unique_id(
-                f"{user_input[CONF_SERIAL_PORT]}:{user_input[CONF_SLAVE]}"
-            )
-            self._abort_if_unique_id_configured()
+            self._config_data = dict(user_input)
+            if user_input[CONF_BACKEND] == BACKEND_ESPHOME_DISCRETE:
+                return await self.async_step_esphome_discrete()
+            return await self.async_step_pcc1302_modbus()
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_backend_schema(self._config_data),
+            errors={},
+        )
+
+    async def async_step_esphome_discrete(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure the discrete backend."""
+        errors: dict[str, str] = {}
+        defaults = {**self._config_data, **(user_input or {})}
+        if user_input is not None:
+            final_data = {
+                **self._config_data,
+                **user_input,
+                CONF_BACKEND: BACKEND_ESPHOME_DISCRETE,
+                CONF_SCAN_THROTTLE_MS: 0,
+            }
             try:
-                await validate_input(self.hass, user_input)
+                await validate_discrete_input(self.hass, final_data)
+            except DiscreteEntityValidationError:
+                errors["base"] = "entity_not_found"
+            else:
+                if _is_duplicate(self.hass, final_data):
+                    return self.async_abort(reason="already_configured")
+                return self.async_create_entry(title="cummins_GNR8R", data=final_data)
+
+        return self.async_show_form(
+            step_id=BACKEND_ESPHOME_DISCRETE,
+            data_schema=_discrete_schema(defaults),
+            errors=errors,
+        )
+
+    async def async_step_pcc1302_modbus(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure the Modbus backend."""
+        errors: dict[str, str] = {}
+        defaults = {**self._config_data, **(user_input or {})}
+        if user_input is not None:
+            final_data = {
+                **self._config_data,
+                **user_input,
+                CONF_BACKEND: BACKEND_PCC1302_MODBUS,
+            }
+            try:
+                await validate_modbus_input(self.hass, final_data)
             except SerialConnectionError:
                 errors["base"] = "cannot_connect"
             except ModbusTimeoutError:
@@ -111,11 +241,13 @@ class CumminsGeneratorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except CumminsGeneratorError:
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(title="cummins_GNR8R", data=user_input)
+                if _is_duplicate(self.hass, final_data):
+                    return self.async_abort(reason="already_configured")
+                return self.async_create_entry(title="cummins_GNR8R", data=final_data)
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=_base_schema(user_input),
+            step_id=BACKEND_PCC1302_MODBUS,
+            data_schema=_modbus_schema(defaults),
             errors=errors,
         )
 
@@ -127,21 +259,75 @@ class CumminsGeneratorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return CumminsGeneratorOptionsFlow(config_entry)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Support reconfiguration from the config entry screen."""
         return await CumminsGeneratorOptionsFlow(self._get_reconfigure_entry()).async_step_init(
             user_input
         )
 
 
 class CumminsGeneratorOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
-    """Options flow for cummins_GNR8R."""
+    """Options and reconfigure flow for cummins_GNR8R."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        errors: dict[str, str] = {}
+        """Choose a backend during options/reconfigure."""
         current = {**self.config_entry.data, **self.config_entry.options}
-
         if user_input is not None:
+            if user_input[CONF_BACKEND] == BACKEND_ESPHOME_DISCRETE:
+                return await self.async_step_esphome_discrete()
+            return await self.async_step_pcc1302_modbus()
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_backend_schema(current),
+            errors={},
+        )
+
+    async def async_step_esphome_discrete(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Update discrete backend settings."""
+        current = {
+            **self.config_entry.data,
+            **self.config_entry.options,
+            CONF_BACKEND: BACKEND_ESPHOME_DISCRETE,
+        }
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            updated = {
+                **current,
+                **user_input,
+                CONF_BACKEND: BACKEND_ESPHOME_DISCRETE,
+                CONF_SCAN_THROTTLE_MS: 0,
+            }
             try:
-                await validate_input(self.hass, user_input)
+                await validate_discrete_input(self.hass, updated)
+            except DiscreteEntityValidationError:
+                errors["base"] = "entity_not_found"
+            else:
+                if _is_duplicate(self.hass, updated, self.config_entry):
+                    return self.async_abort(reason="already_configured")
+                return self.async_create_entry(title="", data=updated)
+
+        return self.async_show_form(
+            step_id=BACKEND_ESPHOME_DISCRETE,
+            data_schema=_discrete_schema(current),
+            errors=errors,
+        )
+
+    async def async_step_pcc1302_modbus(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Update PCC1302 Modbus settings."""
+        current = {
+            **self.config_entry.data,
+            **self.config_entry.options,
+            CONF_BACKEND: BACKEND_PCC1302_MODBUS,
+        }
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            updated = {**current, **user_input, CONF_BACKEND: BACKEND_PCC1302_MODBUS}
+            try:
+                await validate_modbus_input(self.hass, updated)
             except SerialConnectionError:
                 errors["base"] = "cannot_connect"
             except ModbusTimeoutError:
@@ -151,10 +337,44 @@ class CumminsGeneratorOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             except CumminsGeneratorError:
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(title="", data=user_input)
+                if _is_duplicate(self.hass, updated, self.config_entry):
+                    return self.async_abort(reason="already_configured")
+                return self.async_create_entry(title="", data=updated)
 
         return self.async_show_form(
-            step_id="init",
-            data_schema=_base_schema(current),
+            step_id=BACKEND_PCC1302_MODBUS,
+            data_schema=_modbus_schema(current),
             errors=errors,
         )
+
+
+def _entry_identity(data: dict[str, Any]) -> str:
+    """Create a duplicate-detection identity for a config entry."""
+    if data[CONF_BACKEND] == BACKEND_PCC1302_MODBUS:
+        return f"modbus:{data[CONF_SERIAL_PORT]}:{data[CONF_SLAVE]}"
+    return "discrete:" + ",".join(
+        sorted(
+            (
+                data[CONF_UTILITY_AVAILABLE_ENTITY_ID],
+                data[CONF_ATS_ON_GENERATOR_ENTITY_ID],
+                data[CONF_GENERATOR_RUNNING_ENTITY_ID],
+                data[CONF_GENERATOR_FAULT_ENTITY_ID],
+            )
+        )
+    )
+
+
+def _is_duplicate(
+    hass: HomeAssistant,
+    candidate: dict[str, Any],
+    current_entry: config_entries.ConfigEntry | None = None,
+) -> bool:
+    """Return True when another entry already matches the backend identity."""
+    candidate_identity = _entry_identity(candidate)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if current_entry is not None and entry.entry_id == current_entry.entry_id:
+            continue
+        current = {**entry.data, **entry.options}
+        if _entry_identity(current) == candidate_identity:
+            return True
+    return False

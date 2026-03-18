@@ -1,17 +1,31 @@
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Final
 
 DOMAIN: Final = "cummins_gnr8r"
 NAME: Final = "cummins_GNR8R"
 VERSION: Final = "0.1.0"
 
-PLATFORMS: Final = ("sensor", "binary_sensor")
+PLATFORMS: Final = ("binary_sensor", "sensor")
 
 DEFAULT_NAME: Final = "cummins_GNR8R"
 DEFAULT_MANUFACTURER: Final = "Cummins"
-DEFAULT_MODEL: Final = "PowerCommand Generator"
+DEFAULT_MODEL: Final = "QuietConnect Generator"
+DEFAULT_MODBUS_MODEL: Final = "PowerCommand 2.x Generator"
+
+BACKEND_ESPHOME_DISCRETE: Final = "esphome_discrete"
+BACKEND_PCC1302_MODBUS: Final = "pcc1302_modbus"
+BACKENDS: Final = (BACKEND_ESPHOME_DISCRETE, BACKEND_PCC1302_MODBUS)
+
+CONF_BACKEND: Final = "backend"
+CONF_UTILITY_AVAILABLE_ENTITY_ID: Final = "utility_available_entity_id"
+CONF_ATS_ON_GENERATOR_ENTITY_ID: Final = "ats_on_generator_entity_id"
+CONF_GENERATOR_RUNNING_ENTITY_ID: Final = "generator_running_entity_id"
+CONF_GENERATOR_FAULT_ENTITY_ID: Final = "generator_fault_entity_id"
+CONF_INVERT_UTILITY_AVAILABLE: Final = "invert_utility_available"
+CONF_INVERT_ATS_ON_GENERATOR: Final = "invert_ats_on_generator"
+CONF_INVERT_GENERATOR_RUNNING: Final = "invert_generator_running"
+CONF_INVERT_GENERATOR_FAULT: Final = "invert_generator_fault"
 
 CONF_POLL_INTERVAL: Final = "poll_interval"
 CONF_SCAN_THROTTLE_MS: Final = "scan_throttle_ms"
@@ -35,16 +49,36 @@ DEFAULT_RETRIES: Final = 2
 MIN_POLL_INTERVAL: Final = 5
 MAX_POLL_INTERVAL: Final = 300
 
-REGISTER_BITMAP_1: Final = 40016
-REGISTER_BITMAP_2: Final = 40017
-REGISTER_LINE_FREQUENCY: Final = 40044
-REGISTER_BATTERY_VOLTAGE: Final = 40061
-REGISTER_OIL_PRESSURE: Final = 40062
-REGISTER_COOLANT_TEMPERATURE: Final = 40064
-REGISTER_ENGINE_SPEED: Final = 40068
-REGISTER_TOTAL_RUNS: Final = 40069
-
-COORDINATOR_TIMEOUT: Final = timedelta(seconds=DEFAULT_TIMEOUT)
-
-DATA_CLIENT: Final = "client"
 DATA_COORDINATOR: Final = "coordinator"
+DATA_BACKEND: Final = "backend"
+
+ROLE_UTILITY_AVAILABLE: Final = "utility_available"
+ROLE_ATS_ON_GENERATOR: Final = "ats_on_generator"
+ROLE_GENERATOR_RUNNING: Final = "generator_running"
+ROLE_GENERATOR_FAULT: Final = "generator_fault"
+LOGICAL_ROLES: Final = (
+    ROLE_UTILITY_AVAILABLE,
+    ROLE_ATS_ON_GENERATOR,
+    ROLE_GENERATOR_RUNNING,
+    ROLE_GENERATOR_FAULT,
+)
+
+DERIVED_RUNNING_ON_GENERATOR: Final = "running_on_generator"
+DERIVED_UTILITY_OUTAGE_ACTIVE: Final = "utility_outage_active"
+DERIVED_TRANSFER_IN_PROGRESS: Final = "transfer_in_progress"
+STATE_TEXT_KEY: Final = "generator_system_state"
+
+MODBUS_REGISTER_NFPA_BITMAP: Final = 40716
+MODBUS_REGISTER_EXTENDED_BITMAP: Final = 40717
+MODBUS_REGISTER_BATTERY_VOLTAGE: Final = 40735
+MODBUS_REGISTER_OIL_PRESSURE: Final = 40736
+MODBUS_REGISTER_COOLANT_TEMPERATURE: Final = 40738
+MODBUS_REGISTER_ENGINE_SPEED: Final = 40742
+MODBUS_REGISTER_TOTAL_RUNS: Final = 40743
+MODBUS_REGISTER_RUNTIME_HIGH: Final = 40744
+MODBUS_REGISTER_RUNTIME_LOW: Final = 40745
+MODBUS_REGISTER_FREQUENCY: Final = 40750
+
+ATTR_BACKEND: Final = "backend"
+ATTR_SOURCE_ENTITY_IDS: Final = "source_entity_ids"
+ATTR_INVERSION: Final = "inversion"

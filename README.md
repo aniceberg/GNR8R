@@ -1,129 +1,287 @@
 # cummins_GNR8R
 
-Home Assistant custom integration for Cummins PowerCommand / PCC1301-family generators over local Modbus RTU on RS-485.
+Home Assistant custom integration and ESPHome companion configuration for Cummins residential standby generators using a dual-backend design:
 
-This integration is designed for HACS custom-repository installation and UI-based configuration. It is intentionally read-only in this first release.
+- Primary/default: ESPHome discrete I/O through opto-isolated inputs
+- Secondary/optional: PCC1302 Modbus RTU over RS-485
+
+This project is built around real field findings from a QuietConnect installation with a PCC1302 controller and HMI211 display, where discrete I/O is physically accessible and RS-485 Modbus support exists in theory but the TB15 connection has not yet been located in the field wiring area.
+
+## Why Two Backends?
+
+The inspected installation exposes discrete integration points now:
+
+- `TB6` output
+- `TB7` output 1 (N.O.)
+- `TB10` SW B+ (switched 12 V, 10 A max source)
+- `TB3` inputs return
+
+The PCC1302 controller also supports Modbus RTU over `TB15`, but that connector may not be broken out, may not be enabled, and has not yet been physically located in the installation. Because of that, this repo is intentionally designed so users can:
+
+1. Start immediately with discrete monitoring through ESPHome.
+2. Upgrade later to direct Modbus telemetry if TB15 becomes available.
+
+## Safety
+
+- This project is read-only. It does not issue start/stop or other control commands.
+- Do not connect generator outputs directly to ESP32 GPIO.
+- Use an opto-isolated input module for all generator and ATS signals.
+- Do not work on line-voltage ATS wiring unless you are qualified to do so.
+- Power the ESP32 from `TB10` through an inline fuse and buck converter only.
+
+## Supported Architecture
+
+Visible branding:
+
+- Integration name: `cummins_GNR8R`
+
+Internal Home Assistant identifiers:
+
+- Domain: `cummins_gnr8r`
+- Package: `custom_components/cummins_gnr8r/`
 
 ## Features
 
-- Local-only polling over USB-to-RS485 serial adapters
-- UI config flow and options/reconfigure flow
-- Coordinator-based polling with graceful availability handling
-- Typed, data-driven register map for PCC1301 / PowerCommand 1.x
-- Raw NFPA status bitmaps plus decoded binary sensors
-- Diagnostics with redacted connection details
-- HACS-compatible repository layout and CI workflow
+- UI config flow with backend selection
+- Default discrete backend using mapped ESPHome entities
+- Optional PCC1302 Modbus backend using `pymodbus`
+- Derived operational state synthesis for outage/transfer scenarios
+- Core binary sensors for running/fault/utility/ATS state
+- System-state text sensor
+- Modbus telemetry when RS-485 is available
+- Diagnostics with per-backend details and redacted serial information
+- HACS-compatible repo layout
+- ESPHome 4-input and 6-input starter YAML files
 
-## Safety Warning
+## Backend A: ESPHome Discrete I/O
 
-This version is read-only. It does not write Modbus registers, issue control commands, or implement Save Trims. It is intended for monitoring only.
+This is the recommended starting point because it relies only on exposed field wiring.
 
-## Supported Scope
+### Expected Hardware
 
-Primary target:
+- ESP32 dev board
+- 4-channel or 6-channel opto-isolated input board
+- 12 V to 5 V buck converter
+- 1 A inline fuse for the ESP32 supply branch
+- Enclosure, terminals, and low-voltage wiring as appropriate
 
-- Cummins residential standby generator
-- PowerCommand HMI211 display
-- PCC1301 / PowerCommand 1.x register family
-- Local Modbus RTU over RS-485
+### Power Wiring
 
-Because Cummins controller families vary, some installations may require register-map adjustments before every entity is valid.
+- `TB10 SW B+` -> inline 1 A fuse -> buck converter input +
+- `TB3 Inputs Return` -> buck converter input - / ESP32 GND reference
+- Buck converter 5 V output -> ESP32 5 V/VIN
 
-## Supported Entities
+### Signal Wiring
 
-| Entity | Type | Register / Bit | Notes |
-| --- | --- | --- | --- |
-| Average line frequency | Sensor | 40044 | Scale 0.1 Hz |
-| Battery voltage | Sensor | 40061 | Scale 0.1 V |
-| Oil pressure | Sensor | 40062 | kPa |
-| Coolant temperature | Sensor | 40064 | Scale 0.1 °C |
-| Engine speed | Sensor | 40068 | rpm |
-| Total runs | Sensor | 40069 | Integer counter |
-| Raw NFPA bitmap 1 | Sensor | 40016 | Diagnostic raw value |
-| Raw NFPA bitmap 2 | Sensor | 40017 | Diagnostic raw value |
-| Common alarm | Binary sensor | 40016 bit 15 | Problem indicator |
-| Genset supplying load | Binary sensor | 40016 bit 14 | Status |
-| Genset running | Binary sensor | 40016 bit 13 | Running state |
-| Not in auto | Binary sensor | 40016 bit 12 | Problem indicator |
-| Low battery voltage alarm | Binary sensor | 40016 bit 10 | Problem indicator |
-| Charger AC failure | Binary sensor | 40016 bit 9 | Problem indicator |
-| Fail to start | Binary sensor | 40016 bit 8 | Problem indicator |
-| High engine temperature | Binary sensor | 40016 bit 5 | Heat problem |
-| Low oil pressure | Binary sensor | 40016 bit 3 | Problem indicator |
-| Overspeed | Binary sensor | 40016 bit 2 | Problem indicator |
-| Low fuel level | Binary sensor | 40016 bit 0 | Problem indicator |
-| Check genset | Binary sensor | 40017 bit 15 | Problem indicator |
-| Ground fault | Binary sensor | 40017 bit 14 | Safety problem |
-| High AC voltage | Binary sensor | 40017 bit 13 | Problem indicator |
-| Low AC voltage | Binary sensor | 40017 bit 12 | Problem indicator |
-| Under frequency | Binary sensor | 40017 bit 11 | Problem indicator |
-| Overload | Binary sensor | 40017 bit 10 | Problem indicator |
-| Overcurrent | Binary sensor | 40017 bit 9 | Problem indicator |
-| Short circuit | Binary sensor | 40017 bit 8 | Problem indicator |
-| Emergency stop | Binary sensor | 40017 bit 0 | Safety problem |
+Use opto-isolated inputs for:
 
-## Installation via HACS
+- `TB6`
+- `TB7`
+- ATS utility-available contact
+- ATS on-generator contact
+- ATS alarm contact (optional)
+- spare/discrete inputs
 
-1. Push this repository to GitHub.
-2. In Home Assistant, open HACS.
-3. Open the three-dot menu, choose `Custom repositories`.
-4. Add your GitHub repository URL and choose category `Integration`.
-5. Find `cummins_GNR8R` in HACS and install it.
-6. Restart Home Assistant.
+Do not assume `TB6`/`TB7` are dry contacts. Treat them as unknown field signals until verified with a meter and wire them only through suitable isolation hardware.
 
-## Manual Installation
+### Included ESPHome Templates
 
-1. Copy `custom_components/cummins_gnr8r/` into your Home Assistant `custom_components/` directory.
+- [`esphome/cummins_generator_4input.yaml`](/Users/isaac/Documents/GitHub/GNR8R/esphome/cummins_generator_4input.yaml)
+- [`esphome/cummins_generator_6input.yaml`](/Users/isaac/Documents/GitHub/GNR8R/esphome/cummins_generator_6input.yaml)
+
+They include:
+
+- parameterized GPIO substitutions
+- debounce filters
+- inversion options
+- descriptive names
+
+Suggested signals:
+
+- `generator_output_1`
+- `generator_output_2`
+- `ats_utility_available`
+- `ats_on_generator`
+- `ats_alarm`
+- `spare_input`
+
+## Backend B: PCC1302 Modbus
+
+This backend is supported, but optional.
+
+Known PCC1302 RS-485 reference:
+
+- `TB15-3` = RS485 A (+)
+- `TB15-4` = RS485 B (-)
+- `TB15-1` = Shield/Return
+
+Field caveats:
+
+- TB15 has not been physically located in the inspected installation
+- RS-485 may not be broken out to field wiring
+- Modbus may need to be enabled in the controller
+- wake-up/jumper/controller settings may still be required
+
+### Modbus Scope
+
+- Serial RTU only
+- Read-only only
+- Typical settings: address `1`, baud `9600` or `19200`, parity `N`
+
+### Implemented PCC1302 Telemetry
+
+| Value | Register | Conversion |
+| --- | --- | --- |
+| NFPA bitmap | 40716 | raw |
+| Extended bitmap | 40717 | raw |
+| Battery voltage | 40735 | 0.1 V |
+| Oil pressure | 40736 | 0.1 kPa |
+| Coolant temperature | 40738 | 0.1 K -> C/F |
+| Engine speed | 40742 | RPM |
+| Total runs | 40743 | integer |
+| Runtime | 40744/40745 | 32-bit |
+| Frequency | 40750 | 0.1 Hz |
+
+## Home Assistant Entities
+
+Core binary sensors provided by both backends:
+
+- `generator_running`
+- `generator_fault`
+- `utility_available`
+- `ats_on_generator`
+- `running_on_generator`
+- `utility_outage_active`
+- `transfer_in_progress`
+
+Core text state output:
+
+- `generator_system_state`
+
+Modbus-only sensors:
+
+- battery voltage
+- oil pressure
+- coolant temperature (C)
+- coolant temperature (F)
+- engine speed
+- total runs
+- runtime
+- frequency
+- raw NFPA bitmap
+- raw extended bitmap
+
+## State Synthesis
+
+The integration synthesizes generator state from the logical signals:
+
+- utility off + ATS off -> `Outage detected, waiting for transfer`
+- utility off + ATS on -> `Running on generator`
+- utility on + ATS on -> `Utility restored, awaiting retransfer`
+- utility on + ATS off -> `Normal utility power`
+- fault active -> append `Fault active`
+- missing/inconsistent signals -> `Transition / unknown`
+
+## Installation
+
+### HACS
+
+1. In HACS, add `https://github.com/aniceberg/GNR8R` as a custom repository.
+2. Choose category `Integration`.
+3. Install `cummins_GNR8R`.
+4. Restart Home Assistant.
+
+### Manual
+
+1. Copy [`custom_components/cummins_gnr8r`](/Users/isaac/Documents/GitHub/GNR8R/custom_components/cummins_gnr8r) into your Home Assistant `custom_components/` directory.
 2. Restart Home Assistant.
-3. Add the integration from `Settings > Devices & services > Add integration`.
+3. Add `cummins_GNR8R` from `Settings -> Devices & services`.
 
-## Setup in Home Assistant
+## Setup
 
-1. Add `cummins_GNR8R`.
-2. Enter the serial path, slave address, baud rate, byte size, parity, stop bits, poll interval, and optional scan throttle.
-3. The integration validates connectivity by reading safe monitoring registers.
-4. On success, entities are created under one generator device.
-5. Use `Configure` on the config entry later to update serial or polling settings.
+### Discrete backend
 
-## Diagnostics
+1. Flash one of the included ESPHome YAMLs to your ESP32 hardware.
+2. Confirm the ESPHome binary sensors appear in Home Assistant.
+3. Add the `cummins_GNR8R` integration.
+4. Choose `ESPHome discrete`.
+5. Map the HA entity IDs for:
+   - utility available
+   - ATS on generator
+   - generator running
+   - generator fault
+6. Set inversion flags if the signal logic is reversed.
 
-Diagnostics export includes:
+### Modbus backend
 
-- Redacted serial connection details
-- Last update success state
-- Last exception category and message
-- Per-register-group health snapshot
+1. Confirm TB15 is physically present and enabled.
+2. Connect a USB-RS485 adapter to the generator controller.
+3. Add or reconfigure `cummins_GNR8R`.
+4. Choose `PCC1302 Modbus`.
+5. Enter serial settings and validate connectivity.
+
+## Upgrade Path: Discrete -> Modbus
+
+The integration is designed so a single config entry can switch backends later.
+
+Recommended path:
+
+1. Start with `ESPHome discrete`.
+2. Verify transfer/outage logic in HA.
+3. Locate and enable TB15 RS-485.
+4. Reconfigure the same integration entry to `PCC1302 Modbus`.
+5. Keep the ESPHome hardware if you still want local fallback or bench diagnostics.
+
+## Wiring Diagram (Conceptual)
+
+```text
+TB10 SW B+ ---- 1A fuse ---- buck converter ---- 5V ---- ESP32
+TB3 Return ----------------- buck converter ---- GND --- ESP32 GND
+
+TB6/TB7/ATS contacts ---- opto-isolated input board ---- ESP32 GPIOs
+```
 
 ## Troubleshooting
 
-- `cannot_connect`: Verify the USB-RS485 adapter path, wiring polarity, and slave address.
-- `timeout`: Confirm the controller is responding at the configured baud/parity/stop-bit settings.
-- `modbus_error`: Check wiring, bus termination, and whether the target controller exposes the PCC1301 register family.
-- Some entities unavailable: Your controller may not implement one of the grouped register ranges yet. The integration leaves unaffected entities active where possible.
+### No signals in discrete mode
 
-## Known Limitations
+- Verify the opto input board has a common reference to `TB3`
+- Verify the ESPHome entities are updating in HA before configuring the integration
+- Confirm the mapped entity IDs are the correct ones
 
-- Read-only monitoring only
-- One generator per config entry
-- No automatic register-family detection in v1
-- No ATS entities yet
+### Signals appear inverted
 
-## Roadmap
+- Enable the per-signal inversion toggle in the integration
+- Or invert the corresponding ESPHome GPIO input if you prefer to normalize at the source
 
-- Additional PowerCommand registers
-- Optional automatic transfer switch support
-- Better model/firmware identification
-- Optional derived health summary sensors
-- Broader controller-family coverage
+### ESP32 keeps rebooting
 
-## Example Screenshots
+- Check the buck converter output under load
+- Confirm the 1 A fused supply branch is stable
+- Separate noisy field wiring from the ESP32 power wiring
 
-Placeholder images live in `docs/screenshots/` and can be replaced before publication.
+### Modbus does not respond
 
-## Repository Publish Notes
+- Confirm TB15 exists and is wired correctly
+- Check controller settings for Modbus enablement
+- Try address `1`, `9600`, `N`, `8`, `1` first, then `19200`
+- Confirm A/B polarity
 
-1. Create a GitHub repository and push this tree.
-2. Update `manifest.json` URLs to your actual repository and issue tracker.
-3. Replace placeholder branding assets.
-4. Tag a release that matches the integration version.
-5. Add the repository to HACS as a custom integration repository.
+## Assumptions That Still Need Field Verification
+
+- Exact electrical behavior of `TB6` and `TB7`
+- Which ATS contacts are practically available in the installation
+- Exact location and enablement state of `TB15`
+- Whether PCC1302 runtime register units need additional field confirmation
+
+## Development
+
+Suggested local checks:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+ruff check .
+pytest
+```

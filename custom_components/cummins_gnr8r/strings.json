@@ -2,8 +2,30 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect Cummins generator",
-        "description": "Configure the serial Modbus RTU connection to your Cummins generator.",
+        "title": "Choose generator backend",
+        "description": "Select how Home Assistant should read your Cummins generator.",
+        "data": {
+          "backend": "Backend"
+        }
+      },
+      "esphome_discrete": {
+        "title": "Configure discrete inputs",
+        "description": "Map ESPHome binary sensors to the generator's logical roles and apply inversion where needed.",
+        "data": {
+          "utility_available_entity_id": "Utility available entity",
+          "ats_on_generator_entity_id": "ATS on generator entity",
+          "generator_running_entity_id": "Generator running entity",
+          "generator_fault_entity_id": "Generator fault entity",
+          "invert_utility_available": "Invert utility available",
+          "invert_ats_on_generator": "Invert ATS on generator",
+          "invert_generator_running": "Invert generator running",
+          "invert_generator_fault": "Invert generator fault",
+          "poll_interval": "Poll interval (seconds)"
+        }
+      },
+      "pcc1302_modbus": {
+        "title": "Configure PCC1302 Modbus",
+        "description": "Enter the serial Modbus RTU settings for the generator controller.",
         "data": {
           "serial_port": "Serial port",
           "slave": "Slave address",
@@ -17,20 +39,44 @@
       }
     },
     "error": {
+      "already_configured": "This generator backend is already configured.",
       "cannot_connect": "Unable to open the serial connection.",
       "timeout": "The controller did not respond in time.",
       "modbus_error": "The device responded with a Modbus error.",
+      "entity_not_found": "One or more mapped entities could not be found.",
       "unknown": "Unexpected error while talking to the controller."
     },
     "abort": {
-      "already_configured": "This serial port and slave address are already configured."
+      "already_configured": "This generator backend is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Update generator connection",
-        "description": "Adjust serial and polling settings for this generator.",
+        "title": "Choose generator backend",
+        "description": "Switch the active backend or update its settings.",
+        "data": {
+          "backend": "Backend"
+        }
+      },
+      "esphome_discrete": {
+        "title": "Configure discrete inputs",
+        "description": "Update entity mappings and inversion settings for the discrete backend.",
+        "data": {
+          "utility_available_entity_id": "Utility available entity",
+          "ats_on_generator_entity_id": "ATS on generator entity",
+          "generator_running_entity_id": "Generator running entity",
+          "generator_fault_entity_id": "Generator fault entity",
+          "invert_utility_available": "Invert utility available",
+          "invert_ats_on_generator": "Invert ATS on generator",
+          "invert_generator_running": "Invert generator running",
+          "invert_generator_fault": "Invert generator fault",
+          "poll_interval": "Poll interval (seconds)"
+        }
+      },
+      "pcc1302_modbus": {
+        "title": "Configure PCC1302 Modbus",
+        "description": "Update serial and polling settings for the Modbus backend.",
         "data": {
           "serial_port": "Serial port",
           "slave": "Slave address",
@@ -44,44 +90,44 @@
       }
     },
     "error": {
+      "already_configured": "This generator backend is already configured.",
       "cannot_connect": "Unable to open the serial connection.",
       "timeout": "The controller did not respond in time.",
       "modbus_error": "The device responded with a Modbus error.",
+      "entity_not_found": "One or more mapped entities could not be found.",
       "unknown": "Unexpected error while talking to the controller."
     }
   },
+  "selector": {
+    "backend": {
+      "options": {
+        "esphome_discrete": "ESPHome discrete",
+        "pcc1302_modbus": "PCC1302 Modbus"
+      }
+    }
+  },
   "entity": {
+    "binary_sensor": {
+      "generator_running": { "name": "Generator running" },
+      "generator_fault": { "name": "Generator fault" },
+      "utility_available": { "name": "Utility available" },
+      "ats_on_generator": { "name": "ATS on generator" },
+      "running_on_generator": { "name": "Running on generator" },
+      "utility_outage_active": { "name": "Utility outage active" },
+      "transfer_in_progress": { "name": "Transfer in progress" }
+    },
     "sensor": {
-      "average_line_frequency": { "name": "Average line frequency" },
+      "generator_system_state": { "name": "Generator system state" },
       "battery_voltage": { "name": "Battery voltage" },
       "oil_pressure": { "name": "Oil pressure" },
-      "coolant_temperature": { "name": "Coolant temperature" },
+      "coolant_temperature_c": { "name": "Coolant temperature (C)" },
+      "coolant_temperature_f": { "name": "Coolant temperature (F)" },
       "engine_speed": { "name": "Engine speed" },
       "total_runs": { "name": "Total runs" },
-      "raw_nfpa_bitmap_1": { "name": "Raw NFPA bitmap 1" },
-      "raw_nfpa_bitmap_2": { "name": "Raw NFPA bitmap 2" }
-    },
-    "binary_sensor": {
-      "common_alarm": { "name": "Common alarm" },
-      "genset_supplying_load": { "name": "Genset supplying load" },
-      "genset_running": { "name": "Genset running" },
-      "not_in_auto": { "name": "Not in auto" },
-      "low_battery_voltage_alarm": { "name": "Low battery voltage alarm" },
-      "charger_ac_failure": { "name": "Charger AC failure" },
-      "fail_to_start": { "name": "Fail to start" },
-      "high_engine_temperature": { "name": "High engine temperature" },
-      "low_oil_pressure": { "name": "Low oil pressure" },
-      "overspeed": { "name": "Overspeed" },
-      "low_fuel_level": { "name": "Low fuel level" },
-      "check_genset": { "name": "Check genset" },
-      "ground_fault": { "name": "Ground fault" },
-      "high_ac_voltage": { "name": "High AC voltage" },
-      "low_ac_voltage": { "name": "Low AC voltage" },
-      "under_frequency": { "name": "Under frequency" },
-      "overload": { "name": "Overload" },
-      "overcurrent": { "name": "Overcurrent" },
-      "short_circuit": { "name": "Short circuit" },
-      "emergency_stop": { "name": "Emergency stop" }
+      "engine_runtime": { "name": "Engine runtime" },
+      "frequency": { "name": "Frequency" },
+      "raw_nfpa_bitmap": { "name": "Raw NFPA bitmap" },
+      "raw_extended_bitmap": { "name": "Raw extended bitmap" }
     }
   }
 }

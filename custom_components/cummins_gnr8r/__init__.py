@@ -6,7 +6,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
+from .backends.esphome_discrete import ESPHomeDiscreteBackend, build_discrete_mappings
+from .backends.pcc1302_modbus import PCC1302ModbusBackend
 from .const import (
+    BACKEND_ESPHOME_DISCRETE,
+    BACKEND_PCC1302_MODBUS,
+    CONF_BACKEND,
     CONF_BAUDRATE,
     CONF_BYTESIZE,
     CONF_PARITY,
@@ -15,7 +20,7 @@ from .const import (
     CONF_SERIAL_PORT,
     CONF_SLAVE,
     CONF_STOPBITS,
-    DATA_CLIENT,
+    DATA_BACKEND,
     DATA_COORDINATOR,
     DOMAIN,
     PLATFORMS,
@@ -34,17 +39,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: CumminsConfigEntry) -> bool:
     """Set up a Cummins generator config entry."""
-    params = _params_from_entry(entry)
-    client = CumminsModbusClient(params)
+    backend = _backend_from_entry(hass, entry)
+    data = {**entry.data, **entry.options}
     coordinator = CumminsGeneratorCoordinator(
         hass=hass,
-        client=client,
-        poll_interval_seconds=params.poll_interval,
+        entry=entry,
+        backend=backend,
+        poll_interval_seconds=data[CONF_POLL_INTERVAL],
     )
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        DATA_CLIENT: client,
+        DATA_BACKEND: backend,
         DATA_COORDINATOR: coordinator,
     }
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -77,3 +83,15 @@ def _params_from_entry(entry: CumminsConfigEntry) -> SerialConnectionParams:
         poll_interval=data[CONF_POLL_INTERVAL],
         scan_throttle_ms=data[CONF_SCAN_THROTTLE_MS],
     )
+
+
+def _backend_from_entry(hass: HomeAssistant, entry: CumminsConfigEntry) -> Any:
+    """Build the configured backend for a config entry."""
+    data = {**entry.data, **entry.options}
+    backend_type = data[CONF_BACKEND]
+    if backend_type == BACKEND_ESPHOME_DISCRETE:
+        return ESPHomeDiscreteBackend(hass, build_discrete_mappings(data))
+    if backend_type == BACKEND_PCC1302_MODBUS:
+        client = CumminsModbusClient(_params_from_entry(entry))
+        return PCC1302ModbusBackend(hass, client)
+    raise ValueError(f"Unsupported backend: {backend_type}")

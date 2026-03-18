@@ -10,7 +10,6 @@ from pymodbus.exceptions import ConnectionException, ModbusException
 from pymodbus.pdu.exceptionresponse import ExceptionResponse
 
 from .const import DEFAULT_RETRIES, DEFAULT_TIMEOUT
-from .register_map import register_to_offset
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -138,3 +137,8 @@ class CumminsModbusClient:
             raise ModbusReadError(str(err)) from err
         finally:
             client.close()
+
+
+def register_to_offset(register: int) -> int:
+    """Convert a 4xxxx holding register to a zero-based Modbus offset."""
+    return register - 40001

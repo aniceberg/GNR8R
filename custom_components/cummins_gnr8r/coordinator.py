@@ -1,28 +1,26 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from datetime import timedelta
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
-from .modbus_client import (
-    CumminsGeneratorError,
-    CumminsModbusClient,
+from .backends.base import CumminsBackend, CumminsBackendError
+from .const import (
+    DEFAULT_MANUFACTURER,
+    DERIVED_RUNNING_ON_GENERATOR,
+    DERIVED_TRANSFER_IN_PROGRESS,
+    DERIVED_UTILITY_OUTAGE_ACTIVE,
+    DOMAIN,
+    ROLE_ATS_ON_GENERATOR,
+    ROLE_GENERATOR_FAULT,
+    ROLE_UTILITY_AVAILABLE,
+    STATE_TEXT_KEY,
 )
-from .models import CoordinatorSnapshot, RegisterGroup
-from .register_map import (
-    ALL_DEFINED_REGISTERS,
-    BINARY_SENSOR_TYPES,
-    BITMAP_SENSOR_TYPES,
-    REGISTER_GROUPS,
-    SENSOR_TYPES,
-    bit_is_set,
-    scale_register_value,
-)
+from .models import CoordinatorSnapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +31,8 @@ class CumminsGeneratorCoordinator(DataUpdateCoordinator[CoordinatorSnapshot]):
     def __init__(
         self,
         hass: HomeAssistant,
-        client: CumminsModbusClient,
+        entry: ConfigEntry,
+        backend: CumminsBackend,
         poll_interval_seconds: int,
     ) -> None:
         super().__init__(
@@ -42,93 +41,74 @@ class CumminsGeneratorCoordinator(DataUpdateCoordinator[CoordinatorSnapshot]):
             name=DOMAIN,
             update_interval=timedelta(seconds=poll_interval_seconds),
         )
-        self.client = client
+        self.entry = entry
+        self.backend = backend
         self.domain = DOMAIN
-        self.device_identifier = f"{client.params.port}:{client.params.slave}"
-        self.device_name = "cummins_GNR8R"
+        self.device_identifier = entry.entry_id
+        self.device_name = entry.title or "cummins_GNR8R"
+        self.device_model = backend.device_model
+        self.manufacturer = DEFAULT_MANUFACTURER
         self.last_exception_type: str | None = None
         self.last_exception_message: str | None = None
 
     async def _async_update_data(self) -> CoordinatorSnapshot:
-        """Poll all required register groups."""
-        values: dict[str, int | float | bool | None] = {}
-        register_availability = dict.fromkeys(ALL_DEFINED_REGISTERS, False)
-        group_health: dict[str, bool] = {}
-
+        """Poll the active backend and synthesize logical state."""
         try:
-            register_values = await self._async_read_groups(REGISTER_GROUPS)
-        except CumminsGeneratorError as err:
+            backend_update = await self.backend.async_fetch()
+        except CumminsBackendError as err:
             self.last_exception_type = type(err).__name__
             self.last_exception_message = str(err)
             raise UpdateFailed(str(err)) from err
 
         self.last_exception_type = None
         self.last_exception_message = None
-
-        for group_key, group_result in register_values.items():
-            group_health[group_key] = group_result is not None
-            if group_result is None:
-                continue
-            for register, raw_value in group_result.items():
-                register_availability[register] = True
-                values[f"register_{register}"] = raw_value
-
-        for description in SENSOR_TYPES:
-            raw_value = register_values_for(register_values, description.register)
-            values[description.key] = (
-                scale_register_value(raw_value, description.scale)
-                if raw_value is not None
-                else None
-            )
-
-        for description in BITMAP_SENSOR_TYPES:
-            values[description.key] = register_values_for(register_values, description.register)
-
-        for description in BINARY_SENSOR_TYPES:
-            register_value = register_values_for(register_values, description.register)
-            values[description.key] = (
-                bit_is_set(register_value, description.bit) if register_value is not None else None
-            )
+        values: dict[str, object] = dict(backend_update.values)
+        values.update(backend_update.logical_signals)
+        values.update(_synthesize_values(backend_update.logical_signals))
 
         return CoordinatorSnapshot(
+            backend=backend_update.backend,
             values=values,
-            register_availability=register_availability,
-            group_health=group_health,
+            details=backend_update.details,
             fetched_at=dt_util.utcnow(),
         )
 
-    async def _async_read_groups(
-        self, groups: tuple[RegisterGroup, ...]
-    ) -> dict[str, dict[int, int] | None]:
-        """Read configured register groups through the executor."""
-        results: dict[str, dict[int, int] | None] = {}
 
-        for group in groups:
-            try:
-                registers = await self.hass.async_add_executor_job(
-                    self.client.read_holding_registers,
-                    group.start_address,
-                    group.count,
-                )
-            except CumminsGeneratorError as err:
-                if group.key == "nfpa_status":
-                    raise
-                _LOGGER.debug("Register group %s unavailable: %s", group.key, err)
-                results[group.key] = None
-                continue
+def _synthesize_values(logical_signals: dict[str, bool | None]) -> dict[str, bool | str | None]:
+    """Synthesize derived entities from logical signal values."""
+    utility_available = logical_signals.get(ROLE_UTILITY_AVAILABLE)
+    ats_on_generator = logical_signals.get(ROLE_ATS_ON_GENERATOR)
+    generator_fault = logical_signals.get(ROLE_GENERATOR_FAULT)
 
-            results[group.key] = {
-                group.start_address + offset: value for offset, value in enumerate(registers)
-            }
+    running_on_generator = (
+        (not utility_available) and ats_on_generator
+        if utility_available is not None and ats_on_generator is not None
+        else None
+    )
+    utility_outage_active = not utility_available if utility_available is not None else None
+    transfer_in_progress = (
+        utility_available == ats_on_generator
+        if utility_available is not None and ats_on_generator is not None
+        else None
+    )
 
-        return results
+    if utility_available is None or ats_on_generator is None:
+        state_text = "Transition / unknown"
+    elif not utility_available and not ats_on_generator:
+        state_text = "Outage detected, waiting for transfer"
+    elif not utility_available and ats_on_generator:
+        state_text = "Running on generator"
+    elif utility_available and ats_on_generator:
+        state_text = "Utility restored, awaiting retransfer"
+    else:
+        state_text = "Normal utility power"
 
+    if generator_fault:
+        state_text = f"{state_text} - Fault active"
 
-def register_values_for(
-    register_groups: Mapping[str, dict[int, int] | None], register: int
-) -> int | None:
-    """Return a register value from grouped results."""
-    for group_result in register_groups.values():
-        if group_result and register in group_result:
-            return group_result[register]
-    return None
+    return {
+        DERIVED_RUNNING_ON_GENERATOR: running_on_generator,
+        DERIVED_UTILITY_OUTAGE_ACTIVE: utility_outage_active,
+        DERIVED_TRANSFER_IN_PROGRESS: transfer_in_progress,
+        STATE_TEXT_KEY: state_text,
+    }
