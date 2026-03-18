@@ -114,7 +114,14 @@
       "ats_on_generator": { "name": "ATS on generator" },
       "running_on_generator": { "name": "Running on generator" },
       "utility_outage_active": { "name": "Utility outage active" },
-      "transfer_in_progress": { "name": "Transfer in progress" }
+      "transfer_in_progress": { "name": "Transfer in progress" },
+      "source_1_available": { "name": "Source 1 available" },
+      "source_2_available": { "name": "Source 2 available" },
+      "source_1_connected": { "name": "Source 1 connected" },
+      "source_2_connected": { "name": "Source 2 connected" },
+      "ats_common_alarm": { "name": "ATS common alarm" },
+      "transfer_inhibit_active": { "name": "Transfer inhibit active" },
+      "retransfer_inhibit_active": { "name": "Retransfer inhibit active" }
     },
     "sensor": {
       "generator_system_state": { "name": "Generator system state" },
@@ -127,7 +134,15 @@
       "engine_runtime": { "name": "Engine runtime" },
       "frequency": { "name": "Frequency" },
       "raw_nfpa_bitmap": { "name": "Raw NFPA bitmap" },
-      "raw_extended_bitmap": { "name": "Raw extended bitmap" }
+      "raw_extended_bitmap": { "name": "Raw extended bitmap" },
+      "utility_ln_average_voltage": { "name": "Utility LN average voltage" },
+      "utility_frequency": { "name": "Utility frequency" },
+      "ats_mode": { "name": "ATS mode" },
+      "ats_state": { "name": "ATS state" },
+      "ats_fault_code": { "name": "ATS fault code" },
+      "ats_fault_type": { "name": "ATS fault type" },
+      "raw_ats_nfpa_bitmap": { "name": "Raw ATS NFPA bitmap" },
+      "raw_ats_extended_bitmap": { "name": "Raw ATS extended bitmap" }
     }
   }
 }

@@ -7,6 +7,13 @@ from homeassistant.core import HomeAssistant
 from ..const import (
     BACKEND_PCC1302_MODBUS,
     DEFAULT_MODBUS_MODEL,
+    MODBUS_REGISTER_ATS1_DEVICE_TYPE,
+    MODBUS_REGISTER_ATS1_EXTENDED_BITMAP,
+    MODBUS_REGISTER_ATS1_FAULT_CODE,
+    MODBUS_REGISTER_ATS1_FAULT_TYPE,
+    MODBUS_REGISTER_ATS1_MODE,
+    MODBUS_REGISTER_ATS1_NFPA_BITMAP,
+    MODBUS_REGISTER_ATS1_STATE,
     MODBUS_REGISTER_BATTERY_VOLTAGE,
     MODBUS_REGISTER_COOLANT_TEMPERATURE,
     MODBUS_REGISTER_ENGINE_SPEED,
@@ -17,8 +24,12 @@ from ..const import (
     MODBUS_REGISTER_RUNTIME_HIGH,
     MODBUS_REGISTER_RUNTIME_LOW,
     MODBUS_REGISTER_TOTAL_RUNS,
+    MODBUS_REGISTER_UTILITY_FREQUENCY,
+    MODBUS_REGISTER_UTILITY_LN_AVERAGE_VOLTAGE,
+    ROLE_ATS_ON_GENERATOR,
     ROLE_GENERATOR_FAULT,
     ROLE_GENERATOR_RUNNING,
+    ROLE_UTILITY_AVAILABLE,
 )
 from ..modbus_client import CumminsModbusClient
 from ..models import BackendUpdate, RegisterGroup
@@ -30,12 +41,41 @@ PCC1302_GROUPS: tuple[RegisterGroup, ...] = (
     RegisterGroup("metrics_b", MODBUS_REGISTER_ENGINE_SPEED, 4),
     RegisterGroup("frequency", MODBUS_REGISTER_FREQUENCY, 1),
 )
+OPTIONAL_GROUPS: tuple[RegisterGroup, ...] = (
+    RegisterGroup("ats_1_status", MODBUS_REGISTER_ATS1_DEVICE_TYPE, 9),
+    RegisterGroup("utility_bus", MODBUS_REGISTER_UTILITY_LN_AVERAGE_VOLTAGE, 1),
+    RegisterGroup("utility_frequency", MODBUS_REGISTER_UTILITY_FREQUENCY, 1),
+)
 
 BIT_COMMON_ALARM = 15
 BIT_GENSET_SUPPLYING_LOAD = 14
 BIT_GENSET_RUNNING = 13
 BIT_CHECK_GENSET = 15
 BIT_EMERGENCY_STOP = 0
+BIT_ATS_SOURCE_1_AVAILABLE = 15
+BIT_ATS_SOURCE_2_AVAILABLE = 14
+BIT_ATS_SOURCE_1_CONNECTED = 13
+BIT_ATS_SOURCE_2_CONNECTED = 12
+BIT_ATS_COMMON_ALARM = 11
+BIT_ATS_TRANSFER_INHIBIT = 6
+BIT_ATS_RETRANSFER_INHIBIT = 5
+
+ATS_MODE_MAP = {
+    0: "test",
+    1: "utility_genset",
+    2: "utility_utility",
+    3: "genset_genset",
+}
+ATS_STATE_MAP = {
+    0: "neutral",
+    1: "source_1_connected",
+    2: "source_2_connected",
+    3: "source_1_and_2_connected",
+}
+ATS_FAULT_TYPE_MAP = {
+    0: "no_faults",
+    1: "warning",
+}
 
 
 class PCC1302ModbusBackend:
@@ -52,7 +92,7 @@ class PCC1302ModbusBackend:
 
     async def async_fetch(self) -> BackendUpdate:
         """Fetch PCC1302 values from Modbus."""
-        register_groups = await _async_read_groups(self.hass, self.client)
+        register_groups, group_health = await _async_read_groups(self.hass, self.client)
         values = _decode_values(register_groups)
         logical_signals = {
             ROLE_GENERATOR_RUNNING: values["modbus_genset_running"],
@@ -60,8 +100,8 @@ class PCC1302ModbusBackend:
                 values[name]
                 for name in ("modbus_common_alarm", "modbus_check_genset", "modbus_emergency_stop")
             ),
-            "utility_available": None,
-            "ats_on_generator": None,
+            ROLE_UTILITY_AVAILABLE: values.get("utility_available"),
+            ROLE_ATS_ON_GENERATOR: values.get("ats_on_generator"),
         }
         return BackendUpdate(
             backend=self.backend_type,
@@ -69,7 +109,7 @@ class PCC1302ModbusBackend:
             values=values,
             details={
                 "backend_name": self.backend_name,
-                "group_health": dict.fromkeys(register_groups, True),
+                "group_health": group_health,
                 "source": self.source_identifier,
             },
             fetched_at=datetime.now(UTC),
@@ -86,9 +126,10 @@ async def async_validate_modbus_backend(hass: HomeAssistant, client: CumminsModb
 
 async def _async_read_groups(
     hass: HomeAssistant, client: CumminsModbusClient
-) -> dict[str, dict[int, int]]:
+) -> tuple[dict[str, dict[int, int]], dict[str, bool]]:
     """Read all configured register groups."""
     results: dict[str, dict[int, int]] = {}
+    group_health: dict[str, bool] = {}
     for group in PCC1302_GROUPS:
         try:
             registers = await hass.async_add_executor_job(
@@ -101,10 +142,29 @@ async def _async_read_groups(
         results[group.key] = {
             group.start_address + offset: value for offset, value in enumerate(registers)
         }
-    return results
+        group_health[group.key] = True
+
+    for group in OPTIONAL_GROUPS:
+        try:
+            registers = await hass.async_add_executor_job(
+                client.read_holding_registers,
+                group.start_address,
+                group.count,
+            )
+        except Exception:
+            group_health[group.key] = False
+            continue
+        results[group.key] = {
+            group.start_address + offset: value for offset, value in enumerate(registers)
+        }
+        group_health[group.key] = True
+
+    return results, group_health
 
 
-def _decode_values(register_groups: dict[str, dict[int, int]]) -> dict[str, int | float | bool]:
+def _decode_values(
+    register_groups: dict[str, dict[int, int]]
+) -> dict[str, int | float | bool | str | None]:
     """Decode raw PCC1302 registers into integration values."""
     registers = {
         register: value
@@ -121,7 +181,7 @@ def _decode_values(register_groups: dict[str, dict[int, int]]) -> dict[str, int 
         registers[MODBUS_REGISTER_RUNTIME_LOW],
     )
 
-    return {
+    values: dict[str, int | float | bool | str | None] = {
         "battery_voltage": round(registers[MODBUS_REGISTER_BATTERY_VOLTAGE] * 0.1, 1),
         "oil_pressure": round(registers[MODBUS_REGISTER_OIL_PRESSURE] * 0.1, 1),
         "coolant_temperature_c": coolant_c,
@@ -137,6 +197,85 @@ def _decode_values(register_groups: dict[str, dict[int, int]]) -> dict[str, int 
         "modbus_genset_running": bit_is_set(nfpa_bitmap, BIT_GENSET_RUNNING),
         "modbus_check_genset": bit_is_set(extended_bitmap, BIT_CHECK_GENSET),
         "modbus_emergency_stop": bit_is_set(extended_bitmap, BIT_EMERGENCY_STOP),
+    }
+    values.update(_decode_optional_ats_values(registers))
+    values.update(_decode_optional_utility_values(registers))
+    return values
+
+
+def _decode_optional_ats_values(registers: dict[int, int]) -> dict[str, int | bool | str | None]:
+    """Decode ATS/utility state when ATS registers are present."""
+    if (
+        MODBUS_REGISTER_ATS1_MODE not in registers
+        or MODBUS_REGISTER_ATS1_EXTENDED_BITMAP not in registers
+    ):
+        return {
+            "ats_mode": None,
+            "ats_state": None,
+            "ats_fault_code": None,
+            "ats_fault_type": None,
+            "raw_ats_nfpa_bitmap": None,
+            "raw_ats_extended_bitmap": None,
+            "source_1_available": None,
+            "source_2_available": None,
+            "source_1_connected": None,
+            "source_2_connected": None,
+            "ats_common_alarm": None,
+            "transfer_inhibit_active": None,
+            "retransfer_inhibit_active": None,
+            "utility_available": None,
+            "ats_on_generator": None,
+        }
+
+    ats_mode_raw = registers[MODBUS_REGISTER_ATS1_MODE]
+    ats_state_raw = registers[MODBUS_REGISTER_ATS1_STATE]
+    ats_fault_type_raw = registers[MODBUS_REGISTER_ATS1_FAULT_TYPE]
+    ats_nfpa = registers[MODBUS_REGISTER_ATS1_NFPA_BITMAP]
+    ats_extended = registers[MODBUS_REGISTER_ATS1_EXTENDED_BITMAP]
+
+    source_1_available = bit_is_set(ats_extended, BIT_ATS_SOURCE_1_AVAILABLE)
+    source_2_available = bit_is_set(ats_extended, BIT_ATS_SOURCE_2_AVAILABLE)
+    source_1_connected = bit_is_set(ats_extended, BIT_ATS_SOURCE_1_CONNECTED)
+    source_2_connected = bit_is_set(ats_extended, BIT_ATS_SOURCE_2_CONNECTED)
+
+    utility_available: bool | None = None
+    ats_on_generator: bool | None = None
+    if ats_mode_raw == 1:
+        utility_available = source_1_available
+        ats_on_generator = source_2_connected
+
+    return {
+        "ats_mode": ATS_MODE_MAP.get(ats_mode_raw, f"unknown_{ats_mode_raw}"),
+        "ats_state": ATS_STATE_MAP.get(ats_state_raw, f"unknown_{ats_state_raw}"),
+        "ats_fault_code": registers[MODBUS_REGISTER_ATS1_FAULT_CODE],
+        "ats_fault_type": ATS_FAULT_TYPE_MAP.get(
+            ats_fault_type_raw, f"unknown_{ats_fault_type_raw}"
+        ),
+        "raw_ats_nfpa_bitmap": ats_nfpa,
+        "raw_ats_extended_bitmap": ats_extended,
+        "source_1_available": source_1_available,
+        "source_2_available": source_2_available,
+        "source_1_connected": source_1_connected,
+        "source_2_connected": source_2_connected,
+        "ats_common_alarm": bit_is_set(ats_extended, BIT_ATS_COMMON_ALARM),
+        "transfer_inhibit_active": bit_is_set(ats_extended, BIT_ATS_TRANSFER_INHIBIT),
+        "retransfer_inhibit_active": bit_is_set(ats_extended, BIT_ATS_RETRANSFER_INHIBIT),
+        "utility_available": utility_available,
+        "ats_on_generator": ats_on_generator,
+    }
+
+
+def _decode_optional_utility_values(registers: dict[int, int]) -> dict[str, float | None]:
+    """Decode optional utility-bus measurements when exposed by the endpoint."""
+    utility_ln_average_voltage = registers.get(MODBUS_REGISTER_UTILITY_LN_AVERAGE_VOLTAGE)
+    utility_frequency = registers.get(MODBUS_REGISTER_UTILITY_FREQUENCY)
+    return {
+        "utility_ln_average_voltage": float(utility_ln_average_voltage)
+        if utility_ln_average_voltage is not None
+        else None,
+        "utility_frequency": round(utility_frequency * 0.1, 1)
+        if utility_frequency is not None
+        else None,
     }
 
 

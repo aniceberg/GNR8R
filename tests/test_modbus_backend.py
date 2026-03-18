@@ -42,6 +42,9 @@ async def test_modbus_backend_decodes_registers(hass) -> None:
         [127, 205, 0, 2955],
         [1800, 14, 0, 25],
         [600],
+        ModbusReadError("unsupported"),
+        ModbusReadError("unsupported"),
+        ModbusReadError("unsupported"),
     ]
 
     backend = PCC1302ModbusBackend(hass, client)
@@ -56,6 +59,74 @@ async def test_modbus_backend_decodes_registers(hass) -> None:
     assert update.values["modbus_common_alarm"] is True
     assert update.logical_signals["generator_running"] is True
     assert update.logical_signals["generator_fault"] is True
+    assert update.logical_signals["utility_available"] is None
+    assert update.logical_signals["ats_on_generator"] is None
+
+
+@pytest.mark.asyncio
+async def test_modbus_backend_decodes_optional_ats_and_utility_registers(hass) -> None:
+    client = Mock()
+    client.params = SerialConnectionParams(
+        port="/dev/ttyUSB0",
+        slave=1,
+        baudrate=9600,
+        bytesize=8,
+        parity="N",
+        stopbits=1,
+        poll_interval=10,
+    )
+    client.read_holding_registers.side_effect = [
+        [0x2000, 0x0000],
+        [127, 205, 0, 2955],
+        [1800, 14, 0, 25],
+        [600],
+        [9, 1, 2, 0, 0, 0, 0, 0x8000, 0xF800],
+        [120],
+        [600],
+    ]
+
+    backend = PCC1302ModbusBackend(hass, client)
+    update = await backend.async_fetch()
+
+    assert update.values["ats_mode"] == "utility_genset"
+    assert update.values["ats_state"] == "source_2_connected"
+    assert update.values["source_1_available"] is True
+    assert update.values["source_2_connected"] is True
+    assert update.values["ats_common_alarm"] is True
+    assert update.values["utility_ln_average_voltage"] == 120.0
+    assert update.values["utility_frequency"] == 60.0
+    assert update.logical_signals["utility_available"] is True
+    assert update.logical_signals["ats_on_generator"] is True
+
+
+@pytest.mark.asyncio
+async def test_modbus_backend_skips_ats_derivation_when_mode_is_not_utility_genset(hass) -> None:
+    client = Mock()
+    client.params = SerialConnectionParams(
+        port="/dev/ttyUSB0",
+        slave=1,
+        baudrate=9600,
+        bytesize=8,
+        parity="N",
+        stopbits=1,
+        poll_interval=10,
+    )
+    client.read_holding_registers.side_effect = [
+        [0x2000, 0x0000],
+        [127, 205, 0, 2955],
+        [1800, 14, 0, 25],
+        [600],
+        [9, 2, 1, 0, 0, 0, 0, 0x8000, 0xE000],
+        ModbusReadError("unsupported"),
+        ModbusReadError("unsupported"),
+    ]
+
+    backend = PCC1302ModbusBackend(hass, client)
+    update = await backend.async_fetch()
+
+    assert update.values["ats_mode"] == "utility_utility"
+    assert update.logical_signals["utility_available"] is None
+    assert update.logical_signals["ats_on_generator"] is None
 
 
 @pytest.mark.asyncio

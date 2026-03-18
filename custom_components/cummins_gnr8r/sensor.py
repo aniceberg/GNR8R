@@ -92,6 +92,51 @@ MODBUS_SENSORS: tuple[GeneratorSensorDescription, ...] = (
         translation_key="raw_extended_bitmap",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    GeneratorSensorDescription(
+        key="utility_ln_average_voltage",
+        translation_key="utility_ln_average_voltage",
+        native_unit_of_measurement="V",
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    GeneratorSensorDescription(
+        key="utility_frequency",
+        translation_key="utility_frequency",
+        native_unit_of_measurement=UnitOfFrequency.HERTZ,
+        device_class=SensorDeviceClass.FREQUENCY,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+    ),
+    GeneratorSensorDescription(
+        key="ats_mode",
+        translation_key="ats_mode",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    GeneratorSensorDescription(
+        key="ats_state",
+        translation_key="ats_state",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    GeneratorSensorDescription(
+        key="ats_fault_code",
+        translation_key="ats_fault_code",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    GeneratorSensorDescription(
+        key="ats_fault_type",
+        translation_key="ats_fault_type",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    GeneratorSensorDescription(
+        key="raw_ats_nfpa_bitmap",
+        translation_key="raw_ats_nfpa_bitmap",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    GeneratorSensorDescription(
+        key="raw_ats_extended_bitmap",
+        translation_key="raw_ats_extended_bitmap",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
 )
 
 

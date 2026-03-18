@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
+    BACKEND_PCC1302_MODBUS,
     DATA_COORDINATOR,
     DERIVED_RUNNING_ON_GENERATOR,
     DERIVED_TRANSFER_IN_PROGRESS,
@@ -37,6 +38,16 @@ CORE_BINARY_SENSORS: tuple[GeneratorBinarySensorDescription, ...] = (
     GeneratorBinarySensorDescription(DERIVED_TRANSFER_IN_PROGRESS, DERIVED_TRANSFER_IN_PROGRESS),
 )
 
+MODBUS_BINARY_SENSORS: tuple[GeneratorBinarySensorDescription, ...] = (
+    GeneratorBinarySensorDescription("source_1_available", "source_1_available"),
+    GeneratorBinarySensorDescription("source_2_available", "source_2_available"),
+    GeneratorBinarySensorDescription("source_1_connected", "source_1_connected"),
+    GeneratorBinarySensorDescription("source_2_connected", "source_2_connected"),
+    GeneratorBinarySensorDescription("ats_common_alarm", "ats_common_alarm"),
+    GeneratorBinarySensorDescription("transfer_inhibit_active", "transfer_inhibit_active"),
+    GeneratorBinarySensorDescription("retransfer_inhibit_active", "retransfer_inhibit_active"),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -45,9 +56,15 @@ async def async_setup_entry(
 ) -> None:
     """Set up binary sensor entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    async_add_entities(
+    entities = [
         CumminsBinarySensor(coordinator, entry, description) for description in CORE_BINARY_SENSORS
-    )
+    ]
+    if coordinator.data.backend == BACKEND_PCC1302_MODBUS:
+        entities.extend(
+            CumminsBinarySensor(coordinator, entry, description)
+            for description in MODBUS_BINARY_SENSORS
+        )
+    async_add_entities(entities)
 
 
 class CumminsBinarySensor(CumminsGeneratorEntity, BinarySensorEntity):
