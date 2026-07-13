@@ -47,6 +47,8 @@ Internal Home Assistant identifiers:
 - Optional PCC1302 Modbus backend using `pymodbus`
 - Derived operational state synthesis for outage/transfer scenarios
 - Core binary sensors for running/fault/utility/ATS state
+- Read-only operating status and action-required state
+- Expanded PCC1302 alarm/status bitmap entities
 - System-state text sensor
 - Modbus telemetry when RS-485 is available
 - Optional ATS and utility-state probing on Modbus endpoints that expose DMC/ATS registers
@@ -144,6 +146,7 @@ Field caveats:
 - Read-only only
 - Typical settings: address `1`, baud `9600` or `19200`, parity `N`
 - The backend always reads core genset telemetry and then probes for optional ATS/utility register support
+- It also probes optional current-fault and genset-load registers when the endpoint supports them
 - If ATS/utility registers are present on the selected Modbus endpoint, the backend synthesizes utility/transfer state without relying on ESPHome
 
 ### Implemented PCC1302 Telemetry
@@ -178,6 +181,12 @@ From those optional registers, the backend can derive:
 - `generator_system_state`
 
 If those registers are not implemented on the selected Modbus slave, the backend keeps core genset telemetry and alarm functionality and marks the ATS-specific entities unavailable rather than mixing in another backend.
+
+### Read-Only Status and Alarms
+
+The Modbus backend decodes the documented PCC1302 NFPA and extended bitmaps into individual diagnostic binary sensors, including low battery, charger failure, fail to start, high temperature, low oil pressure, overspeed, low fuel, not in auto, test/exercise, load shed, transfer inhibits, synchronization failures, and bypass states.
+
+The integration also exposes a conservative `generator_operating_status` value of `Fault`, `Not in auto`, `Running`, `Stopped`, or `Transition / unknown`, plus an `action_required` binary sensor. It does not invent starting, cooldown, or exercise states when the controller does not expose reliable data for them.
 
 ## Home Assistant Entities
 
@@ -216,6 +225,9 @@ Modbus-only sensors:
 - raw ATS NFPA bitmap
 - raw ATS extended bitmap
 - source 1/source 2 availability and connected-state diagnostics
+- current fault code/type when the optional registers are supported
+- genset load percentage and total kW when the optional registers are supported
+- decoded NFPA and extended alarm/status flags
 
 ## State Synthesis
 

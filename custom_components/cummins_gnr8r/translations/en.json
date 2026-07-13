@@ -115,6 +115,22 @@
       "running_on_generator": { "name": "Running on generator" },
       "utility_outage_active": { "name": "Utility outage active" },
       "transfer_in_progress": { "name": "Transfer in progress" },
+      "action_required": { "name": "Action required" },
+      "not_in_auto": { "name": "Not in auto" },
+      "low_battery_voltage_alarm": { "name": "Low battery voltage alarm" },
+      "charger_ac_failure": { "name": "Charger AC failure" },
+      "fail_to_start": { "name": "Fail to start" },
+      "high_engine_temperature": { "name": "High engine temperature" },
+      "low_oil_pressure_alarm": { "name": "Low oil pressure alarm" },
+      "overspeed": { "name": "Overspeed" },
+      "low_fuel_level": { "name": "Low fuel level" },
+      "test_exercise_in_progress": { "name": "Test or exercise in progress" },
+      "load_shed": { "name": "Load shed" },
+      "fail_to_close": { "name": "Fail to close" },
+      "fail_to_disconnect": { "name": "Fail to disconnect" },
+      "fail_to_synchronize": { "name": "Fail to synchronize" },
+      "bypass_to_source_1": { "name": "Bypass to source 1" },
+      "bypass_to_source_2": { "name": "Bypass to source 2" },
       "source_1_available": { "name": "Source 1 available" },
       "source_2_available": { "name": "Source 2 available" },
       "source_1_connected": { "name": "Source 1 connected" },
@@ -125,6 +141,7 @@
     },
     "sensor": {
       "generator_system_state": { "name": "Generator system state" },
+      "generator_operating_status": { "name": "Generator operating status" },
       "battery_voltage": { "name": "Battery voltage" },
       "oil_pressure": { "name": "Oil pressure" },
       "coolant_temperature_c": { "name": "Coolant temperature (C)" },
@@ -142,7 +159,11 @@
       "ats_fault_code": { "name": "ATS fault code" },
       "ats_fault_type": { "name": "ATS fault type" },
       "raw_ats_nfpa_bitmap": { "name": "Raw ATS NFPA bitmap" },
-      "raw_ats_extended_bitmap": { "name": "Raw ATS extended bitmap" }
+      "raw_ats_extended_bitmap": { "name": "Raw ATS extended bitmap" },
+      "current_fault_code": { "name": "Current fault code" },
+      "current_fault_type": { "name": "Current fault type" },
+      "genset_load_percent": { "name": "Genset load" },
+      "genset_total_kw": { "name": "Genset total power" }
     }
   }
 }

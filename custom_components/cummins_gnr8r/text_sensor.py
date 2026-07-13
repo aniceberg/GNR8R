@@ -3,7 +3,7 @@ from __future__ import annotations
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 
-from .const import STATE_TEXT_KEY
+from .const import OPERATING_STATUS_KEY, STATE_TEXT_KEY
 from .entity import CumminsGeneratorEntity
 
 
@@ -19,6 +19,25 @@ class CumminsStateTextSensor(CumminsGeneratorEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         value = self.coordinator.data.values.get(STATE_TEXT_KEY)
+        return value if isinstance(value, str) else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.native_value is not None
+
+
+class CumminsOperatingStatusSensor(CumminsGeneratorEntity, SensorEntity):
+    """Read-only normalized operating status."""
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_translation_key = OPERATING_STATUS_KEY
+        self._attr_unique_id = f"{entry.entry_id}_{OPERATING_STATUS_KEY}"
+        self._attr_icon = "mdi:engine"
+
+    @property
+    def native_value(self) -> str | None:
+        value = self.coordinator.data.values.get(OPERATING_STATUS_KEY)
         return value if isinstance(value, str) else None
 
     @property

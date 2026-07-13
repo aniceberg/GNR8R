@@ -16,6 +16,7 @@ from custom_components.cummins_gnr8r.const import (
     ROLE_GENERATOR_RUNNING,
     ROLE_UTILITY_AVAILABLE,
 )
+from custom_components.cummins_gnr8r.status import decode_operating_status
 
 
 @pytest.mark.asyncio
@@ -38,6 +39,9 @@ async def test_discrete_backend_applies_inversion(hass, discrete_entry_data) -> 
 
     assert update.logical_signals[ROLE_UTILITY_AVAILABLE] is False
     assert update.logical_signals[ROLE_GENERATOR_RUNNING] is False
+
+    status = decode_operating_status(update.logical_signals)
+    assert status["generator_operating_status"] == "Stopped"
 
 
 @pytest.mark.asyncio

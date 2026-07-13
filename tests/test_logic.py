@@ -11,6 +11,7 @@ from custom_components.cummins_gnr8r.const import (
     STATE_TEXT_KEY,
 )
 from custom_components.cummins_gnr8r.coordinator import _synthesize_values
+from custom_components.cummins_gnr8r.status import decode_operating_status
 
 
 def test_state_synthesis_normal_utility() -> None:
@@ -55,3 +56,35 @@ def test_state_synthesis_transition_unknown() -> None:
     assert values[DERIVED_RUNNING_ON_GENERATOR] is None
     assert values[DERIVED_TRANSFER_IN_PROGRESS] is None
     assert values[STATE_TEXT_KEY] == "Transition / unknown"
+
+
+def test_operating_status_precedence_fault_over_running() -> None:
+    values = decode_operating_status(
+        {
+            ROLE_GENERATOR_RUNNING: True,
+            ROLE_GENERATOR_FAULT: True,
+            "not_in_auto": True,
+        }
+    )
+    assert values["generator_operating_status"] == "Fault"
+    assert values["action_required"] is True
+
+
+def test_operating_status_not_in_auto_before_running() -> None:
+    values = decode_operating_status(
+        {
+            ROLE_GENERATOR_RUNNING: True,
+            ROLE_GENERATOR_FAULT: False,
+            "not_in_auto": True,
+        }
+    )
+    assert values["generator_operating_status"] == "Not in auto"
+
+
+def test_operating_status_stopped_and_unknown() -> None:
+    assert decode_operating_status(
+        {ROLE_GENERATOR_RUNNING: False, ROLE_GENERATOR_FAULT: False}
+    )["generator_operating_status"] == "Stopped"
+    assert decode_operating_status(
+        {ROLE_GENERATOR_RUNNING: None, ROLE_GENERATOR_FAULT: False}
+    )["generator_operating_status"] == "Transition / unknown"

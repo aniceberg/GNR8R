@@ -16,9 +16,13 @@ from ..const import (
     MODBUS_REGISTER_ATS1_STATE,
     MODBUS_REGISTER_BATTERY_VOLTAGE,
     MODBUS_REGISTER_COOLANT_TEMPERATURE,
+    MODBUS_REGISTER_CURRENT_FAULT_CODE,
+    MODBUS_REGISTER_CURRENT_FAULT_TYPE,
     MODBUS_REGISTER_ENGINE_SPEED,
     MODBUS_REGISTER_EXTENDED_BITMAP,
     MODBUS_REGISTER_FREQUENCY,
+    MODBUS_REGISTER_GENSET_LOAD_PERCENT,
+    MODBUS_REGISTER_GENSET_TOTAL_KW,
     MODBUS_REGISTER_NFPA_BITMAP,
     MODBUS_REGISTER_OIL_PRESSURE,
     MODBUS_REGISTER_RUNTIME_HIGH,
@@ -42,6 +46,8 @@ PCC1302_GROUPS: tuple[RegisterGroup, ...] = (
     RegisterGroup("frequency", MODBUS_REGISTER_FREQUENCY, 1),
 )
 OPTIONAL_GROUPS: tuple[RegisterGroup, ...] = (
+    RegisterGroup("current_fault", MODBUS_REGISTER_CURRENT_FAULT_CODE, 2),
+    RegisterGroup("genset_load", MODBUS_REGISTER_GENSET_LOAD_PERCENT, 2),
     RegisterGroup("ats_1_status", MODBUS_REGISTER_ATS1_DEVICE_TYPE, 9),
     RegisterGroup("utility_bus", MODBUS_REGISTER_UTILITY_LN_AVERAGE_VOLTAGE, 1),
     RegisterGroup("utility_frequency", MODBUS_REGISTER_UTILITY_FREQUENCY, 1),
@@ -52,13 +58,28 @@ BIT_GENSET_SUPPLYING_LOAD = 14
 BIT_GENSET_RUNNING = 13
 BIT_CHECK_GENSET = 15
 BIT_EMERGENCY_STOP = 0
+BIT_NFPA_NOT_IN_AUTO = 12
+BIT_NFPA_LOW_BATTERY = 10
+BIT_NFPA_CHARGER_AC_FAILURE = 9
+BIT_NFPA_FAIL_TO_START = 8
+BIT_NFPA_HIGH_ENGINE_TEMPERATURE = 5
+BIT_NFPA_LOW_OIL_PRESSURE = 3
+BIT_NFPA_OVERSPEED = 2
+BIT_NFPA_LOW_FUEL = 0
+BIT_EXTENDED_TEST_EXERCISE = 9
+BIT_EXTENDED_LOAD_SHED = 7
+BIT_EXTENDED_TRANSFER_INHIBIT = 6
+BIT_EXTENDED_RETRANSFER_INHIBIT = 5
+BIT_EXTENDED_FAIL_TO_CLOSE = 4
+BIT_EXTENDED_FAIL_TO_DISCONNECT = 3
+BIT_EXTENDED_FAIL_TO_SYNCHRONIZE = 2
+BIT_EXTENDED_BYPASS_SOURCE_1 = 1
+BIT_EXTENDED_BYPASS_SOURCE_2 = 0
 BIT_ATS_SOURCE_1_AVAILABLE = 15
 BIT_ATS_SOURCE_2_AVAILABLE = 14
 BIT_ATS_SOURCE_1_CONNECTED = 13
 BIT_ATS_SOURCE_2_CONNECTED = 12
 BIT_ATS_COMMON_ALARM = 11
-BIT_ATS_TRANSFER_INHIBIT = 6
-BIT_ATS_RETRANSFER_INHIBIT = 5
 
 ATS_MODE_MAP = {
     0: "test",
@@ -75,6 +96,13 @@ ATS_STATE_MAP = {
 ATS_FAULT_TYPE_MAP = {
     0: "no_faults",
     1: "warning",
+}
+CURRENT_FAULT_TYPE_MAP = {
+    0: "none",
+    1: "warning",
+    2: "derate",
+    3: "shutdown_with_cooldown",
+    4: "shutdown",
 }
 
 
@@ -98,7 +126,18 @@ class PCC1302ModbusBackend:
             ROLE_GENERATOR_RUNNING: values["modbus_genset_running"],
             ROLE_GENERATOR_FAULT: any(
                 values[name]
-                for name in ("modbus_common_alarm", "modbus_check_genset", "modbus_emergency_stop")
+                for name in (
+                    "modbus_common_alarm",
+                    "modbus_check_genset",
+                    "modbus_emergency_stop",
+                    "low_battery_voltage_alarm",
+                    "charger_ac_failure",
+                    "fail_to_start",
+                    "high_engine_temperature",
+                    "low_oil_pressure_alarm",
+                    "overspeed",
+                    "low_fuel_level",
+                )
             ),
             ROLE_UTILITY_AVAILABLE: values.get("utility_available"),
             ROLE_ATS_ON_GENERATOR: values.get("ats_on_generator"),
@@ -197,9 +236,55 @@ def _decode_values(
         "modbus_genset_running": bit_is_set(nfpa_bitmap, BIT_GENSET_RUNNING),
         "modbus_check_genset": bit_is_set(extended_bitmap, BIT_CHECK_GENSET),
         "modbus_emergency_stop": bit_is_set(extended_bitmap, BIT_EMERGENCY_STOP),
+        "not_in_auto": bit_is_set(nfpa_bitmap, BIT_NFPA_NOT_IN_AUTO),
+        "low_battery_voltage_alarm": bit_is_set(nfpa_bitmap, BIT_NFPA_LOW_BATTERY),
+        "charger_ac_failure": bit_is_set(nfpa_bitmap, BIT_NFPA_CHARGER_AC_FAILURE),
+        "fail_to_start": bit_is_set(nfpa_bitmap, BIT_NFPA_FAIL_TO_START),
+        "high_engine_temperature": bit_is_set(nfpa_bitmap, BIT_NFPA_HIGH_ENGINE_TEMPERATURE),
+        "low_oil_pressure_alarm": bit_is_set(nfpa_bitmap, BIT_NFPA_LOW_OIL_PRESSURE),
+        "overspeed": bit_is_set(nfpa_bitmap, BIT_NFPA_OVERSPEED),
+        "low_fuel_level": bit_is_set(nfpa_bitmap, BIT_NFPA_LOW_FUEL),
+        "test_exercise_in_progress": bit_is_set(extended_bitmap, BIT_EXTENDED_TEST_EXERCISE),
+        "load_shed": bit_is_set(extended_bitmap, BIT_EXTENDED_LOAD_SHED),
+        "transfer_inhibit_active": bit_is_set(
+            extended_bitmap, BIT_EXTENDED_TRANSFER_INHIBIT
+        ),
+        "retransfer_inhibit_active": bit_is_set(
+            extended_bitmap, BIT_EXTENDED_RETRANSFER_INHIBIT
+        ),
+        "fail_to_close": bit_is_set(extended_bitmap, BIT_EXTENDED_FAIL_TO_CLOSE),
+        "fail_to_disconnect": bit_is_set(extended_bitmap, BIT_EXTENDED_FAIL_TO_DISCONNECT),
+        "fail_to_synchronize": bit_is_set(
+            extended_bitmap, BIT_EXTENDED_FAIL_TO_SYNCHRONIZE
+        ),
+        "bypass_to_source_1": bit_is_set(extended_bitmap, BIT_EXTENDED_BYPASS_SOURCE_1),
+        "bypass_to_source_2": bit_is_set(extended_bitmap, BIT_EXTENDED_BYPASS_SOURCE_2),
     }
+    values["action_required"] = any(
+        values[name]
+        for name in (
+            "modbus_common_alarm",
+            "modbus_check_genset",
+            "modbus_emergency_stop",
+            "not_in_auto",
+            "low_battery_voltage_alarm",
+            "charger_ac_failure",
+            "fail_to_start",
+            "high_engine_temperature",
+            "low_oil_pressure_alarm",
+            "overspeed",
+            "low_fuel_level",
+            "fail_to_close",
+            "fail_to_disconnect",
+            "fail_to_synchronize",
+        )
+    )
+    values.update(_decode_optional_fault_and_load_values(registers))
     values.update(_decode_optional_ats_values(registers))
     values.update(_decode_optional_utility_values(registers))
+    values["action_required"] = bool(
+        values["action_required"] or values.get("ats_common_alarm", False)
+    )
     return values
 
 
@@ -221,8 +306,6 @@ def _decode_optional_ats_values(registers: dict[int, int]) -> dict[str, int | bo
             "source_1_connected": None,
             "source_2_connected": None,
             "ats_common_alarm": None,
-            "transfer_inhibit_active": None,
-            "retransfer_inhibit_active": None,
             "utility_available": None,
             "ats_on_generator": None,
         }
@@ -258,8 +341,6 @@ def _decode_optional_ats_values(registers: dict[int, int]) -> dict[str, int | bo
         "source_1_connected": source_1_connected,
         "source_2_connected": source_2_connected,
         "ats_common_alarm": bit_is_set(ats_extended, BIT_ATS_COMMON_ALARM),
-        "transfer_inhibit_active": bit_is_set(ats_extended, BIT_ATS_TRANSFER_INHIBIT),
-        "retransfer_inhibit_active": bit_is_set(ats_extended, BIT_ATS_RETRANSFER_INHIBIT),
         "utility_available": utility_available,
         "ats_on_generator": ats_on_generator,
     }
@@ -276,6 +357,26 @@ def _decode_optional_utility_values(registers: dict[int, int]) -> dict[str, floa
         "utility_frequency": round(utility_frequency * 0.1, 1)
         if utility_frequency is not None
         else None,
+    }
+
+
+def _decode_optional_fault_and_load_values(
+    registers: dict[int, int],
+) -> dict[str, int | float | str | None]:
+    """Decode optional current-fault and load registers."""
+    fault_code = registers.get(MODBUS_REGISTER_CURRENT_FAULT_CODE)
+    fault_type = registers.get(MODBUS_REGISTER_CURRENT_FAULT_TYPE)
+    load_percent = registers.get(MODBUS_REGISTER_GENSET_LOAD_PERCENT)
+    total_kw = registers.get(MODBUS_REGISTER_GENSET_TOTAL_KW)
+    return {
+        "current_fault_code": fault_code,
+        "current_fault_type": CURRENT_FAULT_TYPE_MAP.get(fault_type, f"unknown_{fault_type}")
+        if fault_type is not None
+        else None,
+        "genset_load_percent": round(load_percent * 0.5, 1)
+        if load_percent is not None
+        else None,
+        "genset_total_kw": float(total_kw) if total_kw is not None else None,
     }
 
 

@@ -21,6 +21,7 @@ from .const import (
     STATE_TEXT_KEY,
 )
 from .models import CoordinatorSnapshot
+from .status import decode_operating_status
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class CumminsGeneratorCoordinator(DataUpdateCoordinator[CoordinatorSnapshot]):
         self.last_exception_message = None
         values: dict[str, object] = dict(backend_update.values)
         values.update(backend_update.logical_signals)
+        values.update(decode_operating_status(values))
         values.update(_synthesize_values(backend_update.logical_signals))
 
         return CoordinatorSnapshot(

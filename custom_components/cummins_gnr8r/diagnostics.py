@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    ACTION_REQUIRED_KEY,
     BACKEND_ESPHOME_DISCRETE,
     CONF_ATS_ON_GENERATOR_ENTITY_ID,
     CONF_BACKEND,
@@ -74,6 +75,19 @@ async def async_get_config_entry_diagnostics(
             "device_identifier": coordinator.device_identifier,
             "backend": coordinator.data.backend if coordinator.data else None,
             "details": coordinator.data.details if coordinator.data else {},
+            "operating_status": (
+                getattr(coordinator.data, "values", {}).get("generator_operating_status")
+                if coordinator.data
+                else None
+            ),
+            "action_required": (
+                getattr(coordinator.data, "values", {}).get(ACTION_REQUIRED_KEY)
+                if coordinator.data
+                else None
+            ),
+            "capabilities": (
+                coordinator.data.details.get("group_health", {}) if coordinator.data else {}
+            ),
             "fetched_at": coordinator.data.fetched_at.isoformat() if coordinator.data else None,
         },
     }

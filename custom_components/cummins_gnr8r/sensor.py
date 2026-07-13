@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import BACKEND_PCC1302_MODBUS, DATA_COORDINATOR, DOMAIN
 from .entity import CumminsGeneratorEntity
-from .text_sensor import CumminsStateTextSensor
+from .text_sensor import CumminsOperatingStatusSensor, CumminsStateTextSensor
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +137,30 @@ MODBUS_SENSORS: tuple[GeneratorSensorDescription, ...] = (
         translation_key="raw_ats_extended_bitmap",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    GeneratorSensorDescription(
+        key="current_fault_code",
+        translation_key="current_fault_code",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    GeneratorSensorDescription(
+        key="current_fault_type",
+        translation_key="current_fault_type",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    GeneratorSensorDescription(
+        key="genset_load_percent",
+        translation_key="genset_load_percent",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+    ),
+    GeneratorSensorDescription(
+        key="genset_total_kw",
+        translation_key="genset_total_kw",
+        native_unit_of_measurement="kW",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+    ),
 )
 
 
@@ -147,7 +171,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up sensor entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    entities: list[SensorEntity] = [CumminsStateTextSensor(coordinator, entry)]
+    entities: list[SensorEntity] = [
+        CumminsStateTextSensor(coordinator, entry),
+        CumminsOperatingStatusSensor(coordinator, entry),
+    ]
     if coordinator.data.backend == BACKEND_PCC1302_MODBUS:
         entities.extend(
             CumminsSensor(coordinator, entry, description) for description in MODBUS_SENSORS

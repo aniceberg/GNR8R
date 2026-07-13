@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
+    ACTION_REQUIRED_KEY,
     BACKEND_PCC1302_MODBUS,
     DATA_COORDINATOR,
     DERIVED_RUNNING_ON_GENERATOR,
@@ -36,9 +37,25 @@ CORE_BINARY_SENSORS: tuple[GeneratorBinarySensorDescription, ...] = (
     GeneratorBinarySensorDescription(DERIVED_RUNNING_ON_GENERATOR, DERIVED_RUNNING_ON_GENERATOR),
     GeneratorBinarySensorDescription(DERIVED_UTILITY_OUTAGE_ACTIVE, DERIVED_UTILITY_OUTAGE_ACTIVE),
     GeneratorBinarySensorDescription(DERIVED_TRANSFER_IN_PROGRESS, DERIVED_TRANSFER_IN_PROGRESS),
+    GeneratorBinarySensorDescription(ACTION_REQUIRED_KEY, ACTION_REQUIRED_KEY),
 )
 
 MODBUS_BINARY_SENSORS: tuple[GeneratorBinarySensorDescription, ...] = (
+    GeneratorBinarySensorDescription("not_in_auto", "not_in_auto"),
+    GeneratorBinarySensorDescription("low_battery_voltage_alarm", "low_battery_voltage_alarm"),
+    GeneratorBinarySensorDescription("charger_ac_failure", "charger_ac_failure"),
+    GeneratorBinarySensorDescription("fail_to_start", "fail_to_start"),
+    GeneratorBinarySensorDescription("high_engine_temperature", "high_engine_temperature"),
+    GeneratorBinarySensorDescription("low_oil_pressure_alarm", "low_oil_pressure_alarm"),
+    GeneratorBinarySensorDescription("overspeed", "overspeed"),
+    GeneratorBinarySensorDescription("low_fuel_level", "low_fuel_level"),
+    GeneratorBinarySensorDescription("test_exercise_in_progress", "test_exercise_in_progress"),
+    GeneratorBinarySensorDescription("load_shed", "load_shed"),
+    GeneratorBinarySensorDescription("fail_to_close", "fail_to_close"),
+    GeneratorBinarySensorDescription("fail_to_disconnect", "fail_to_disconnect"),
+    GeneratorBinarySensorDescription("fail_to_synchronize", "fail_to_synchronize"),
+    GeneratorBinarySensorDescription("bypass_to_source_1", "bypass_to_source_1"),
+    GeneratorBinarySensorDescription("bypass_to_source_2", "bypass_to_source_2"),
     GeneratorBinarySensorDescription("source_1_available", "source_1_available"),
     GeneratorBinarySensorDescription("source_2_available", "source_2_available"),
     GeneratorBinarySensorDescription("source_1_connected", "source_1_connected"),
