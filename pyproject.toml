@@ -11,7 +11,7 @@ requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Isaac" }]
 dependencies = [
-  "homeassistant>=2026.9.3",
+  "homeassistant>=2026.10.4",
   "pymodbus>=3.13.1",
 ]
 
@@ -20,7 +20,7 @@ dev = [
   "pytest>=9.0.3",
   "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
-  "pytest-homeassistant-custom-component>=0.13.366",
+  "pytest-homeassistant-custom-component>=0.13.375",
   "ruff>=0.16.9",
 ]
 
